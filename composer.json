@@ -3,7 +3,7 @@
     "description": "Venuno destination-side contract for Magento 2 — connection verification (Release 0.1). Exposes read-only health, version and capabilities endpoints behind a Venuno token. Order import is intentionally not implemented yet.",
     "type": "magento2-module",
     "version": "0.1.0",
-    "license": "proprietary",
+    "license": "OSL-3.0",
     "authors": [
         {
             "name": "Venuno",
