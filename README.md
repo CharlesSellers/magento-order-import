@@ -24,11 +24,12 @@ for the contract rationale and stability commitments.
 
 ## Installation
 
-Distribute via a Composer **VCS** or **path** repository (this module is not published on Packagist).
+The repository is **public** and installed via a Composer **VCS** repository (it is not published on
+Packagist, so it must be registered as a repository before `require`). No authentication is required.
 
 ```bash
-# In the Magento project root, point Composer at the module repository:
-composer config repositories.venuno-order-import vcs git@github.com:CharlesSellers/magento-order-import.git
+# In the Magento project root, register the public repository:
+composer config repositories.venuno-order-import vcs https://github.com/CharlesSellers/magento-order-import.git
 
 # Require it (pin the contract version you have verified against):
 composer require venuno/module-order-import:^0.1
@@ -36,8 +37,9 @@ composer require venuno/module-order-import:^0.1
 # Enable and install:
 bin/magento module:enable Venuno_OrderImport
 bin/magento setup:upgrade
+bin/magento cache:flush
 
-# Production mode only — compile DI and deploy:
+# Production mode only — compile DI:
 bin/magento setup:di:compile
 ```
 
