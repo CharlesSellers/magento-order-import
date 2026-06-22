@@ -1,0 +1,9 @@
+# Composer
+/vendor/
+composer.lock
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp

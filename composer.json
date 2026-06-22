@@ -1,0 +1,25 @@
+{
+    "name": "venuno/module-order-import",
+    "description": "Venuno destination-side contract for Magento 2 — connection verification (Release 0.1). Exposes read-only health, version and capabilities endpoints behind a Venuno token. Order import is intentionally not implemented yet.",
+    "type": "magento2-module",
+    "version": "0.1.0",
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Venuno",
+            "homepage": "https://venuno.io"
+        }
+    ],
+    "require": {
+        "php": ">=8.1",
+        "magento/framework": "^103.0"
+    },
+    "autoload": {
+        "files": [
+            "registration.php"
+        ],
+        "psr-4": {
+            "Venuno\\OrderImport\\": ""
+        }
+    }
+}

@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Venuno Order Import module declaration.
+ * Sequenced after Magento_Webapi so the REST routes resolve in the right order.
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Module/etc/module.xsd">
+    <module name="Venuno_OrderImport">
+        <sequence>
+            <module name="Magento_Webapi"/>
+        </sequence>
+    </module>
+</config>

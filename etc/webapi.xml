@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Venuno destination verification contract — REST routes.
+ *
+ * The routes are declared `anonymous` to Magento's own ACL because authentication is the Venuno
+ * per-environment token, validated in the service layer (see Model\TokenAuthenticator), NOT a Magento
+ * admin/integration token. Every service therefore enforces the token itself and returns 401 when it is
+ * missing or invalid.
+ */
+-->
+<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Webapi:etc/webapi.xsd">
+    <route url="/V1/venuno/health" method="GET">
+        <service class="Venuno\OrderImport\Api\HealthInterface" method="get"/>
+        <resources>
+            <resource ref="anonymous"/>
+        </resources>
+    </route>
+    <route url="/V1/venuno/version" method="GET">
+        <service class="Venuno\OrderImport\Api\VersionInterface" method="get"/>
+        <resources>
+            <resource ref="anonymous"/>
+        </resources>
+    </route>
+    <route url="/V1/venuno/capabilities" method="GET">
+        <service class="Venuno\OrderImport\Api\CapabilitiesInterface" method="get"/>
+        <resources>
+            <resource ref="anonymous"/>
+        </resources>
+    </route>
+</routes>

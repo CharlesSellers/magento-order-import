@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Service contract bindings: each Api interface (and its Data result interface) is bound to its Model
+ * implementation so the Magento webapi runtime can resolve and serialize them.
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <!-- Services -->
+    <preference for="Venuno\OrderImport\Api\HealthInterface"
+                type="Venuno\OrderImport\Model\Health"/>
+    <preference for="Venuno\OrderImport\Api\VersionInterface"
+                type="Venuno\OrderImport\Model\Version"/>
+    <preference for="Venuno\OrderImport\Api\CapabilitiesInterface"
+                type="Venuno\OrderImport\Model\Capabilities"/>
+
+    <!-- Result DTOs -->
+    <preference for="Venuno\OrderImport\Api\Data\HealthResultInterface"
+                type="Venuno\OrderImport\Model\Data\HealthResult"/>
+    <preference for="Venuno\OrderImport\Api\Data\VersionResultInterface"
+                type="Venuno\OrderImport\Model\Data\VersionResult"/>
+    <preference for="Venuno\OrderImport\Api\Data\CapabilitiesResultInterface"
+                type="Venuno\OrderImport\Model\Data\CapabilitiesResult"/>
+</config>
