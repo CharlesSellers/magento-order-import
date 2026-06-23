@@ -14,12 +14,18 @@
                 type="Venuno\OrderImport\Model\Version"/>
     <preference for="Venuno\OrderImport\Api\CapabilitiesInterface"
                 type="Venuno\OrderImport\Model\Capabilities"/>
+    <preference for="Venuno\OrderImport\Api\OrderImportInterface"
+                type="Venuno\OrderImport\Model\OrderImport"/>
 
-    <!-- Result DTOs -->
+    <!-- Result / request DTOs -->
     <preference for="Venuno\OrderImport\Api\Data\HealthResultInterface"
                 type="Venuno\OrderImport\Model\Data\HealthResult"/>
     <preference for="Venuno\OrderImport\Api\Data\VersionResultInterface"
                 type="Venuno\OrderImport\Model\Data\VersionResult"/>
     <preference for="Venuno\OrderImport\Api\Data\CapabilitiesResultInterface"
                 type="Venuno\OrderImport\Model\Data\CapabilitiesResult"/>
+    <preference for="Venuno\OrderImport\Api\Data\OrderImportRequestInterface"
+                type="Venuno\OrderImport\Model\Data\OrderImportRequest"/>
+    <preference for="Venuno\OrderImport\Api\Data\OrderImportResultInterface"
+                type="Venuno\OrderImport\Model\Data\OrderImportResult"/>
 </config>

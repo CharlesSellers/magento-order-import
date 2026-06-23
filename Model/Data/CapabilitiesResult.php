@@ -22,6 +22,16 @@ class CapabilitiesResult extends AbstractSimpleObject implements CapabilitiesRes
         return $this->setData(self::ORDER_IMPORT, $enabled);
     }
 
+    public function getOrderMaterialisation(): bool
+    {
+        return (bool) $this->_get(self::ORDER_MATERIALISATION);
+    }
+
+    public function setOrderMaterialisation(bool $enabled): CapabilitiesResultInterface
+    {
+        return $this->setData(self::ORDER_MATERIALISATION, $enabled);
+    }
+
     public function getContractVersion(): string
     {
         return (string) $this->_get(self::CONTRACT_VERSION);

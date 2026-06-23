@@ -11,13 +11,14 @@ It exposes three read-only REST endpoints, each authenticated with a Venuno **pe
 | Method & path | Returns |
 |---|---|
 | `GET /V1/venuno/health` | `{"status":"ok"}` |
-| `GET /V1/venuno/version` | `{"module_version":"0.1.0","magento_version":"2.4.7","magento_edition":"Community"}` |
-| `GET /V1/venuno/capabilities` | `{"order_import":false,"contract_version":"0.1","import_identity_fields":[…],"import_replay_fields":[…]}` |
+| `GET /V1/venuno/version` | `{"module_version":"0.2.0","magento_version":"2.4.7","magento_edition":"Community"}` |
+| `GET /V1/venuno/capabilities` | `{"order_import":true,"order_materialisation":false,"contract_version":"0.2",…}` |
+| `POST /V1/venuno/orders/import` | `{"accepted":true,"duplicate":false,"replay_key":"magento:…","import_status":"pending","magento_order_id":0,"message":"Import recorded."}` |
 
-See [`docs/adr/ADR-0001-destination-verification-contract.md`](docs/adr/ADR-0001-destination-verification-contract.md)
-for the verification-contract rationale, and
-[`docs/adr/ADR-0002-import-domain-contract.md`](docs/adr/ADR-0002-import-domain-contract.md) for the
-import-domain (identity + replay) contract advertised by `capabilities`.
+See the ADRs for rationale and stability commitments:
+[ADR-0001](docs/adr/ADR-0001-destination-verification-contract.md) (verification contract),
+[ADR-0002](docs/adr/ADR-0002-import-domain-contract.md) (import-domain identity + replay contract),
+[ADR-0003](docs/adr/ADR-0003-order-import-intake.md) (idempotent order-import intake).
 
 ## Requirements
 
@@ -79,12 +80,13 @@ curl -s "$BASE/venuno/health"       -H "Authorization: Bearer $TOKEN"
 # {"status":"ok"}
 
 curl -s "$BASE/venuno/version"      -H "Authorization: Bearer $TOKEN"
-# {"module_version":"0.1.0","magento_version":"2.4.7","magento_edition":"Community"}
+# {"module_version":"0.2.0","magento_version":"2.4.7","magento_edition":"Community"}
 
 curl -s "$BASE/venuno/capabilities" -H "Authorization: Bearer $TOKEN"
 # {
-#   "order_import": false,
-#   "contract_version": "0.1",
+#   "order_import": true,
+#   "order_materialisation": false,
+#   "contract_version": "0.2",
 #   "import_identity_fields": ["source_connection_id","source_platform","source_base_url",
 #     "source_store_id","source_store_code","source_website_id","source_order_entity_id",
 #     "source_order_increment_id","source_order_display_number","original_created_at"],
@@ -120,28 +122,47 @@ with 401. Token comparison is constant-time; a list of tokens is supported for z
 - Response keys are append-only: existing keys never change meaning, so a Venuno client can read responses
   forward-compatibly (ignore unknown keys; treat a missing capability as `false`).
 
-## Import-domain contract (advertised, not yet enforced)
+## Order import (idempotent intake)
 
-`capabilities` advertises the **contract a future order import will require** — so a Venuno client can
-discover and validate it *before* any import endpoint exists. `order_import` stays `false` until that
-endpoint ships.
+`POST /V1/venuno/orders/import` accepts a replicated order, validates the import-domain contract, and
+**idempotently stages** it. It is the destination idempotency authority:
 
 - **Identity is store-aware and never `increment_id` alone.** The source store hosts many storefronts,
   each with its own `increment_id` sequence, so `increment_id` is not globally unique. The contract keys
   on the globally-unique `source_order_entity_id` and carries the full composite identity
   (`import_identity_fields`).
-- **Idempotency is `replay_key` + `payload_hash`** (`import_replay_fields`): `replay_key` is a stable
-  anchor derived from identity (identical across repeated pulls → first-write-wins, no duplicates);
-  `payload_hash` distinguishes a benign re-pull from a genuine content change.
+- **First-write-wins idempotency on `replay_key`** (a `UNIQUE` column): a repeat POST of the same order
+  is a no-op that returns the existing record (`duplicate:true`). Repeated source pulls or retries can
+  never create a duplicate. `payload_hash` distinguishes a benign re-pull from a genuine content change.
+- Required fields: `replay_key`, `source_platform`, `source_base_url`, `source_order_entity_id`.
+  Missing fields return **HTTP 422**.
+
+```bash
+curl -s -X POST "$BASE/venuno/orders/import" -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" -d '{
+    "request": {
+      "replay_key": "magento:<sha256>", "payload_hash": "<sha256>",
+      "source_platform": "magento", "source_base_url": "https://store.example.com",
+      "source_store_id": "4", "source_store_code": "ace_en",
+      "source_website_id": "4", "source_order_entity_id": "212733",
+      "source_order_increment_id": "100000123", "source_order_display_number": "100000123",
+      "original_created_at": "2026-06-23 08:11:36",
+      "order": { "header": { }, "line_items": [ ], "totals": { } }
+    }
+  }'
+# {"accepted":true,"duplicate":false,"replay_key":"magento:…","import_status":"pending","magento_order_id":0,"message":"Import recorded."}
+```
 
 The rationale and field-by-field definitions are in
-[`docs/adr/ADR-0002-import-domain-contract.md`](docs/adr/ADR-0002-import-domain-contract.md).
+[ADR-0002](docs/adr/ADR-0002-import-domain-contract.md) and
+[ADR-0003](docs/adr/ADR-0003-order-import-intake.md).
 
 ## What this release is **not**
 
-No order ingestion. No write endpoints. `capabilities.order_import` is `false` and flips to `true` only in
-a future release that genuinely accepts inbound orders. The import-domain contract above is **advertised
-metadata only** — a promise, not yet an enforced wire schema. See the ADRs for the roadmap.
+It accepts and **stages** imports; it does **not** yet materialise them into native Magento sales orders
+(`capabilities.order_materialisation` is `false`, `magento_order_id` is `0`). Materialisation
+(customer/address/SKU mapping, totals) is a later release that requires validation against a live
+Magento. See the ADRs for the roadmap.
 
 ## Repository layout
 
@@ -153,26 +174,35 @@ metadata only** — a promise, not yet an enforced wire schema. See the ADRs for
 ├── LICENSE
 ├── etc/
 │   ├── module.xml          # module declaration (sequenced after Magento_Webapi)
-│   ├── webapi.xml          # the three REST routes (anonymous ACL; token enforced in services)
-│   └── di.xml              # service + DTO preferences
+│   ├── webapi.xml          # the REST routes (anonymous ACL; token enforced in services)
+│   ├── di.xml              # service + DTO preferences
+│   └── db_schema.xml       # venuno_order_import idempotency + staging table
 ├── Api/
 │   ├── HealthInterface.php
 │   ├── VersionInterface.php
 │   ├── CapabilitiesInterface.php
-│   └── Data/               # typed result DTO interfaces (stable JSON shapes)
+│   ├── OrderImportInterface.php
+│   └── Data/               # typed request/result DTO interfaces (stable JSON shapes)
 │       ├── HealthResultInterface.php
 │       ├── VersionResultInterface.php
-│       └── CapabilitiesResultInterface.php
+│       ├── CapabilitiesResultInterface.php
+│       ├── OrderImportRequestInterface.php
+│       └── OrderImportResultInterface.php
 ├── Model/
 │   ├── Health.php          # service implementations (webapi has no MVC controllers)
 │   ├── Version.php
 │   ├── Capabilities.php
+│   ├── OrderImport.php             # idempotent intake service
+│   ├── OrderImportRepository.php   # venuno_order_import persistence (replay_key lookup + insert)
 │   ├── TokenAuthenticator.php
 │   └── Data/               # DTO implementations
 │       ├── HealthResult.php
 │       ├── VersionResult.php
-│       └── CapabilitiesResult.php
+│       ├── CapabilitiesResult.php
+│       ├── OrderImportRequest.php
+│       └── OrderImportResult.php
 └── docs/adr/
     ├── ADR-0001-destination-verification-contract.md
-    └── ADR-0002-import-domain-contract.md      # identity + replay contract (advertised by capabilities)
+    ├── ADR-0002-import-domain-contract.md      # identity + replay contract (advertised by capabilities)
+    └── ADR-0003-order-import-intake.md         # idempotent order-import intake (staging)
 ```
