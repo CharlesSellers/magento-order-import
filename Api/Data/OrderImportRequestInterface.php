@@ -33,62 +33,98 @@ interface OrderImportRequestInterface
 
     /** @return string */
     public function getReplayKey(): string;
-    /** @param string $value @return $this */
+    /**
+     * @param string $value
+     * @return $this
+     */
     public function setReplayKey(string $value): OrderImportRequestInterface;
 
     /** @return string */
     public function getPayloadHash(): string;
-    /** @param string $value @return $this */
+    /**
+     * @param string $value
+     * @return $this
+     */
     public function setPayloadHash(string $value): OrderImportRequestInterface;
 
     /** @return string */
     public function getSourceConnectionId(): string;
-    /** @param string $value @return $this */
+    /**
+     * @param string $value
+     * @return $this
+     */
     public function setSourceConnectionId(string $value): OrderImportRequestInterface;
 
     /** @return string */
     public function getSourcePlatform(): string;
-    /** @param string $value @return $this */
+    /**
+     * @param string $value
+     * @return $this
+     */
     public function setSourcePlatform(string $value): OrderImportRequestInterface;
 
     /** @return string */
     public function getSourceBaseUrl(): string;
-    /** @param string $value @return $this */
+    /**
+     * @param string $value
+     * @return $this
+     */
     public function setSourceBaseUrl(string $value): OrderImportRequestInterface;
 
     /** @return string */
     public function getSourceStoreId(): string;
-    /** @param string $value @return $this */
+    /**
+     * @param string $value
+     * @return $this
+     */
     public function setSourceStoreId(string $value): OrderImportRequestInterface;
 
     /** @return string */
     public function getSourceStoreCode(): string;
-    /** @param string $value @return $this */
+    /**
+     * @param string $value
+     * @return $this
+     */
     public function setSourceStoreCode(string $value): OrderImportRequestInterface;
 
     /** @return string */
     public function getSourceWebsiteId(): string;
-    /** @param string $value @return $this */
+    /**
+     * @param string $value
+     * @return $this
+     */
     public function setSourceWebsiteId(string $value): OrderImportRequestInterface;
 
     /** @return string */
     public function getSourceOrderEntityId(): string;
-    /** @param string $value @return $this */
+    /**
+     * @param string $value
+     * @return $this
+     */
     public function setSourceOrderEntityId(string $value): OrderImportRequestInterface;
 
     /** @return string */
     public function getSourceOrderIncrementId(): string;
-    /** @param string $value @return $this */
+    /**
+     * @param string $value
+     * @return $this
+     */
     public function setSourceOrderIncrementId(string $value): OrderImportRequestInterface;
 
     /** @return string */
     public function getSourceOrderDisplayNumber(): string;
-    /** @param string $value @return $this */
+    /**
+     * @param string $value
+     * @return $this
+     */
     public function setSourceOrderDisplayNumber(string $value): OrderImportRequestInterface;
 
     /** @return string */
     public function getOriginalCreatedAt(): string;
-    /** @param string $value @return $this */
+    /**
+     * @param string $value
+     * @return $this
+     */
     public function setOriginalCreatedAt(string $value): OrderImportRequestInterface;
 
     /**

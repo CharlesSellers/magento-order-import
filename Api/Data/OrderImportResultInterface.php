@@ -34,31 +34,49 @@ interface OrderImportResultInterface
 
     /** @return bool */
     public function getAccepted(): bool;
-    /** @param bool $value @return $this */
+    /**
+     * @param bool $value
+     * @return $this
+     */
     public function setAccepted(bool $value): OrderImportResultInterface;
 
     /** @return bool */
     public function getDuplicate(): bool;
-    /** @param bool $value @return $this */
+    /**
+     * @param bool $value
+     * @return $this
+     */
     public function setDuplicate(bool $value): OrderImportResultInterface;
 
     /** @return string */
     public function getReplayKey(): string;
-    /** @param string $value @return $this */
+    /**
+     * @param string $value
+     * @return $this
+     */
     public function setReplayKey(string $value): OrderImportResultInterface;
 
     /** @return string */
     public function getImportStatus(): string;
-    /** @param string $value @return $this */
+    /**
+     * @param string $value
+     * @return $this
+     */
     public function setImportStatus(string $value): OrderImportResultInterface;
 
     /** @return int */
     public function getMagentoOrderId(): int;
-    /** @param int $value @return $this */
+    /**
+     * @param int $value
+     * @return $this
+     */
     public function setMagentoOrderId(int $value): OrderImportResultInterface;
 
     /** @return string */
     public function getMessage(): string;
-    /** @param string $value @return $this */
+    /**
+     * @param string $value
+     * @return $this
+     */
     public function setMessage(string $value): OrderImportResultInterface;
 }
