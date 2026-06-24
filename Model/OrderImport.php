@@ -7,7 +7,6 @@ declare(strict_types=1);
 
 namespace Venuno\OrderImport\Model;
 
-use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Framework\Webapi\Exception as WebapiException;
 use Venuno\OrderImport\Api\Data\OrderImportRequestInterface;
 use Venuno\OrderImport\Api\Data\OrderImportResultInterface;
@@ -35,8 +34,7 @@ class OrderImport implements OrderImportInterface
     public function __construct(
         private readonly OrderImportResultInterfaceFactory $resultFactory,
         private readonly TokenAuthenticator $authenticator,
-        private readonly OrderImportRepository $repository,
-        private readonly Json $json
+        private readonly OrderImportRepository $repository
     ) {
     }
 
@@ -74,7 +72,7 @@ class OrderImport implements OrderImportInterface
             'source_order_display_number' => $request->getSourceOrderDisplayNumber(),
             'original_created_at' => $request->getOriginalCreatedAt(),
             'import_status' => 'pending',
-            'request_payload' => $this->json->serialize($request->getOrder()),
+            'request_payload' => $request->getOrder(),
         ]);
 
         return $this->result(true, false, $replayKey, 'pending', 0, 'Import recorded.');

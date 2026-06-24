@@ -133,17 +133,17 @@ class OrderImportRequest extends AbstractSimpleObject implements OrderImportRequ
     }
 
     /**
-     * @return mixed[]
+     * @return string
      */
-    public function getOrder(): array
+    public function getOrder(): string
     {
-        return (array) ($this->_get(self::ORDER) ?? []);
+        return (string) ($this->_get(self::ORDER) ?? '');
     }
 
     /**
-     * @param mixed[] $order
+     * @param string $order
      */
-    public function setOrder(array $order): OrderImportRequestInterface
+    public function setOrder(string $order): OrderImportRequestInterface
     {
         return $this->setData(self::ORDER, $order);
     }

@@ -128,15 +128,16 @@ interface OrderImportRequestInterface
     public function setOriginalCreatedAt(string $value): OrderImportRequestInterface;
 
     /**
-     * The normalised order payload (header, addresses, items, totals, payment metadata).
+     * The normalised order payload as a JSON string (header, addresses, items, totals, payment metadata).
+     * Carried opaquely at this staging release; the client owns the structure.
      *
-     * @return mixed[]
+     * @return string
      */
-    public function getOrder(): array;
+    public function getOrder(): string;
 
     /**
-     * @param mixed[] $order
+     * @param string $order
      * @return $this
      */
-    public function setOrder(array $order): OrderImportRequestInterface;
+    public function setOrder(string $order): OrderImportRequestInterface;
 }
