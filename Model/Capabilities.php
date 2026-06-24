@@ -13,8 +13,8 @@ use Venuno\OrderImport\Api\Data\CapabilitiesResultInterfaceFactory;
 
 class Capabilities implements CapabilitiesInterface
 {
-    /** The import-domain contract version advertised in Release 0.1. */
-    public const CONTRACT_VERSION = '0.1';
+    /** The import-domain contract version. 0.2 adds the idempotent intake endpoint. */
+    public const CONTRACT_VERSION = '0.2';
 
     /**
      * Store-aware source identity a future import will require. NEVER increment_id alone — it is
@@ -53,10 +53,12 @@ class Capabilities implements CapabilitiesInterface
     {
         $this->authenticator->authenticate();
 
-        // Release 0.1: the contract exists and is discoverable; order import does not yet. order_import
-        // flips to true only when a future release actually accepts inbound orders.
+        // 0.2: the store accepts and idempotently STAGES inbound imports (order_import = true).
+        // Materialising a staged import into a native Magento sales order is a later, live-validated
+        // release (order_materialisation = false) — see ADR-0003.
         return $this->resultFactory->create()
-            ->setOrderImport(false)
+            ->setOrderImport(true)
+            ->setOrderMaterialisation(false)
             ->setContractVersion(self::CONTRACT_VERSION)
             ->setImportIdentityFields(self::IMPORT_IDENTITY_FIELDS)
             ->setImportReplayFields(self::IMPORT_REPLAY_FIELDS);

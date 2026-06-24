@@ -29,4 +29,10 @@
             <resource ref="anonymous"/>
         </resources>
     </route>
+    <route url="/V1/venuno/orders/import" method="POST">
+        <service class="Venuno\OrderImport\Api\OrderImportInterface" method="import"/>
+        <resources>
+            <resource ref="anonymous"/>
+        </resources>
+    </route>
 </routes>

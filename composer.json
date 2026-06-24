@@ -1,8 +1,8 @@
 {
     "name": "venuno/module-order-import",
-    "description": "Venuno destination-side contract for Magento 2 — connection verification (Release 0.1). Exposes read-only health, version and capabilities endpoints behind a Venuno token. Order import is intentionally not implemented yet.",
+    "description": "Venuno destination-side contract for Magento 2. Exposes health, version and capabilities endpoints plus an idempotent order-import intake (POST /V1/venuno/orders/import) behind a Venuno token. Staged imports are not yet materialised into native Magento sales orders.",
     "type": "magento2-module",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "license": "OSL-3.0",
     "authors": [
         {

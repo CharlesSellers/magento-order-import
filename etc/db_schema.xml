@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Venuno order-import idempotency + staging table.
+ *
+ * The destination is the idempotency authority: every accepted import is recorded under its stable
+ * `replay_key` (UNIQUE). A repeat POST of the same order finds the existing row and is a no-op
+ * (first-write-wins), so repeated source pulls can never create a duplicate. The full store-aware
+ * identity and the normalised order payload are persisted for audit/replay. `magento_order_id` stays
+ * null until a future release materialises the staged import into a native Magento sales order.
+ */
+-->
+<schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Setup/Declaration/Schema/etc/schema.xsd">
+    <table name="venuno_order_import" resource="default" engine="innodb"
+           comment="Venuno order-import idempotency + staging">
+        <column xsi:type="int" name="entity_id" padding="10" unsigned="true" nullable="false" identity="true"
+                comment="Primary key"/>
+        <column xsi:type="varchar" name="replay_key" length="64" nullable="false"
+                comment="Stable idempotency anchor (first-write-wins)"/>
+        <column xsi:type="varchar" name="payload_hash" length="64" nullable="true"
+                comment="Content hash of the normalised order"/>
+        <column xsi:type="varchar" name="source_connection_id" length="128" nullable="true"/>
+        <column xsi:type="varchar" name="source_platform" length="64" nullable="true"/>
+        <column xsi:type="varchar" name="source_base_url" length="255" nullable="true"/>
+        <column xsi:type="varchar" name="source_store_id" length="64" nullable="true"/>
+        <column xsi:type="varchar" name="source_store_code" length="64" nullable="true"/>
+        <column xsi:type="varchar" name="source_website_id" length="64" nullable="true"/>
+        <column xsi:type="varchar" name="source_order_entity_id" length="64" nullable="true"
+                comment="Globally-unique source order PK"/>
+        <column xsi:type="varchar" name="source_order_increment_id" length="64" nullable="true"
+                comment="Per-store sequence (NOT globally unique)"/>
+        <column xsi:type="varchar" name="source_order_display_number" length="64" nullable="true"/>
+        <column xsi:type="varchar" name="original_created_at" length="32" nullable="true"/>
+        <column xsi:type="varchar" name="import_status" length="20" nullable="false" default="pending"
+                comment="pending | imported | skipped | failed"/>
+        <column xsi:type="int" name="magento_order_id" padding="10" unsigned="true" nullable="true"
+                comment="Materialised native order id (null until a future release creates it)"/>
+        <column xsi:type="text" name="request_payload" nullable="true"
+                comment="Normalised order payload JSON (audit/replay)"/>
+        <column xsi:type="timestamp" name="created_at" on_update="false" nullable="false" default="CURRENT_TIMESTAMP"/>
+        <column xsi:type="timestamp" name="updated_at" on_update="true" nullable="false" default="CURRENT_TIMESTAMP"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="entity_id"/>
+        </constraint>
+        <constraint xsi:type="unique" referenceId="VENUNO_ORDER_IMPORT_REPLAY_KEY">
+            <column name="replay_key"/>
+        </constraint>
+        <index referenceId="VENUNO_ORDER_IMPORT_SOURCE_ORDER_ENTITY_ID" indexType="btree">
+            <column name="source_order_entity_id"/>
+        </index>
+    </table>
+</schema>
