@@ -2,7 +2,7 @@
     "name": "venuno/module-order-import",
     "description": "Venuno destination-side contract for Magento 2. Exposes health, version and capabilities endpoints plus an idempotent order-import intake (POST /V1/venuno/orders/import) behind a Venuno token. Staged imports are not yet materialised into native Magento sales orders.",
     "type": "magento2-module",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "license": "OSL-3.0",
     "authors": [
         {

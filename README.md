@@ -11,14 +11,15 @@ It exposes three read-only REST endpoints, each authenticated with a Venuno **pe
 | Method & path | Returns |
 |---|---|
 | `GET /V1/venuno/health` | `{"status":"ok"}` |
-| `GET /V1/venuno/version` | `{"module_version":"0.2.0","magento_version":"2.4.7","magento_edition":"Community"}` |
+| `GET /V1/venuno/version` | `{"module_version":"0.2.1","magento_version":"2.4.7","magento_edition":"Community"}` |
 | `GET /V1/venuno/capabilities` | `{"order_import":true,"order_materialisation":false,"contract_version":"0.2",…}` |
 | `POST /V1/venuno/orders/import` | `{"accepted":true,"duplicate":false,"replay_key":"magento:…","import_status":"pending","magento_order_id":0,"message":"Import recorded."}` |
 
 See the ADRs for rationale and stability commitments:
 [ADR-0001](docs/adr/ADR-0001-destination-verification-contract.md) (verification contract),
 [ADR-0002](docs/adr/ADR-0002-import-domain-contract.md) (import-domain identity + replay contract),
-[ADR-0003](docs/adr/ADR-0003-order-import-intake.md) (idempotent order-import intake).
+[ADR-0003](docs/adr/ADR-0003-order-import-intake.md) (idempotent order-import intake),
+[ADR-0004](docs/adr/ADR-0004-replay-key-column-width.md) (replay_key column width, 0.2.1).
 
 ## Requirements
 
@@ -80,7 +81,7 @@ curl -s "$BASE/venuno/health"       -H "Authorization: Bearer $TOKEN"
 # {"status":"ok"}
 
 curl -s "$BASE/venuno/version"      -H "Authorization: Bearer $TOKEN"
-# {"module_version":"0.2.0","magento_version":"2.4.7","magento_edition":"Community"}
+# {"module_version":"0.2.1","magento_version":"2.4.7","magento_edition":"Community"}
 
 curl -s "$BASE/venuno/capabilities" -H "Authorization: Bearer $TOKEN"
 # {
