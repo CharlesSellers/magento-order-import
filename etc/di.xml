@@ -28,4 +28,12 @@
                 type="Venuno\OrderImport\Model\Data\OrderImportRequest"/>
     <preference for="Venuno\OrderImport\Api\Data\OrderImportResultInterface"
                 type="Venuno\OrderImport\Model\Data\OrderImportResult"/>
+
+    <!-- Materialisation (0.3): bind the Magento-free orchestration seams to their Magento implementations -->
+    <preference for="Venuno\OrderImport\Model\Materialisation\ImportRowStoreInterface"
+                type="Venuno\OrderImport\Model\OrderImportRepository"/>
+    <preference for="Venuno\OrderImport\Model\Materialisation\NativeOrderGatewayInterface"
+                type="Venuno\OrderImport\Model\Materialisation\NativeOrderGateway"/>
+    <preference for="Venuno\OrderImport\Model\Materialisation\TransactionRunnerInterface"
+                type="Venuno\OrderImport\Model\Materialisation\MagentoTransactionRunner"/>
 </config>

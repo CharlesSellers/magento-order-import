@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * PHPUnit configuration.
+ *
+ * The `Unit` suite is Magento-free: it exercises the pure materialisation core (draft builder, the
+ * idempotency/transaction/partial-failure state machine, error classification) and runs with only
+ * `phpunit/phpunit` installed — no Magento runtime, no repo.magento.com credentials. Run it standalone:
+ *
+ *     composer install
+ *     composer test:unit
+ *
+ * The Magento-coupled code (NativeOrderGateway, the resource-connection store/transaction, and the
+ * end-to-end import → native order path) is covered by the `Test/Integration` suite, which must run
+ * inside a real Magento (`dev/tests/integration`) — see Test/Integration/README.md.
+ */
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache"
+         failOnWarning="true"
+         failOnRisky="true"
+         beStrictAboutOutputDuringTests="true">
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>Test/Unit</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory suffix=".php">Model</directory>
+        </include>
+    </source>
+</phpunit>

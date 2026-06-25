@@ -13,8 +13,8 @@ use Venuno\OrderImport\Api\Data\CapabilitiesResultInterfaceFactory;
 
 class Capabilities implements CapabilitiesInterface
 {
-    /** The import-domain contract version. 0.2 adds the idempotent intake endpoint. */
-    public const CONTRACT_VERSION = '0.2';
+    /** The import-domain contract version. 0.2 added the intake; 0.3 adds native order materialisation. */
+    public const CONTRACT_VERSION = '0.3';
 
     /**
      * Store-aware source identity a future import will require. NEVER increment_id alone — it is
@@ -45,7 +45,8 @@ class Capabilities implements CapabilitiesInterface
 
     public function __construct(
         private readonly CapabilitiesResultInterfaceFactory $resultFactory,
-        private readonly TokenAuthenticator $authenticator
+        private readonly TokenAuthenticator $authenticator,
+        private readonly MaterialisationConfig $materialisationConfig
     ) {
     }
 
@@ -53,12 +54,13 @@ class Capabilities implements CapabilitiesInterface
     {
         $this->authenticator->authenticate();
 
-        // 0.2: the store accepts and idempotently STAGES inbound imports (order_import = true).
-        // Materialising a staged import into a native Magento sales order is a later, live-validated
-        // release (order_materialisation = false) — see ADR-0003.
+        // 0.3: the store accepts + idempotently stages imports (order_import = true), and — when the
+        // materialise flag is enabled (default off; staging proves before production) — turns each staged
+        // import into a native Magento sales order (order_materialisation reflects the live flag). See
+        // ADR-0003 (intake) and ADR-0005 (materialisation).
         return $this->resultFactory->create()
             ->setOrderImport(true)
-            ->setOrderMaterialisation(false)
+            ->setOrderMaterialisation($this->materialisationConfig->isEnabled())
             ->setContractVersion(self::CONTRACT_VERSION)
             ->setImportIdentityFields(self::IMPORT_IDENTITY_FIELDS)
             ->setImportReplayFields(self::IMPORT_REPLAY_FIELDS);
