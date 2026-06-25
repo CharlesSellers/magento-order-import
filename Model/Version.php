@@ -18,7 +18,7 @@ class Version implements VersionInterface
      * Canonical Venuno contract / module version. Mirrors composer.json "version" — bump both together on
      * a contract change (see docs/adr/ADR-0001).
      */
-    public const MODULE_VERSION = '0.2.0';
+    public const MODULE_VERSION = '0.2.1';
 
     public function __construct(
         private readonly VersionResultInterfaceFactory $resultFactory,

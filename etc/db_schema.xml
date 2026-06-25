@@ -16,8 +16,8 @@
            comment="Venuno order-import idempotency + staging">
         <column xsi:type="int" name="entity_id" padding="10" unsigned="true" nullable="false" identity="true"
                 comment="Primary key"/>
-        <column xsi:type="varchar" name="replay_key" length="64" nullable="false"
-                comment="Stable idempotency anchor (first-write-wins)"/>
+        <column xsi:type="varchar" name="replay_key" length="191" nullable="false"
+                comment="Stable idempotency anchor (first-write-wins); >=72 for 'magento:'+sha256, 191 = utf8mb4 index-safe"/>
         <column xsi:type="varchar" name="payload_hash" length="64" nullable="true"
                 comment="Content hash of the normalised order"/>
         <column xsi:type="varchar" name="source_connection_id" length="128" nullable="true"/>
