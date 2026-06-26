@@ -33,9 +33,15 @@
         <column xsi:type="varchar" name="source_order_display_number" length="64" nullable="true"/>
         <column xsi:type="varchar" name="original_created_at" length="32" nullable="true"/>
         <column xsi:type="varchar" name="import_status" length="20" nullable="false" default="pending"
-                comment="pending | imported | skipped | failed"/>
+                comment="pending | materialising | imported | failed | skipped"/>
         <column xsi:type="int" name="magento_order_id" padding="10" unsigned="true" nullable="true"
-                comment="Materialised native order id (null until a future release creates it)"/>
+                comment="Materialised native order id (set when order_materialisation creates the order; 0.3+)"/>
+        <column xsi:type="int" name="attempts" padding="10" unsigned="true" nullable="false" default="0"
+                comment="Materialisation attempts (incremented on each claim)"/>
+        <column xsi:type="datetime" name="materialised_at" nullable="true"
+                comment="When the staged import became a native Magento order"/>
+        <column xsi:type="text" name="error_message" nullable="true"
+                comment="Last materialisation failure (for diagnosis + replay)"/>
         <column xsi:type="text" name="request_payload" nullable="true"
                 comment="Normalised order payload JSON (audit/replay)"/>
         <column xsi:type="timestamp" name="created_at" on_update="false" nullable="false" default="CURRENT_TIMESTAMP"/>
