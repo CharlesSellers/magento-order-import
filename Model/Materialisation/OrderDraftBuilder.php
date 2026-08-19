@@ -68,6 +68,11 @@ class OrderDraftBuilder
             (string) ($order['order_currency_code'] ?? '')
         );
 
+        // 0.4: interpret the sibling `customer` block (guest vs linked). The resolution itself is
+        // Magento-side (NativeOrderGateway); the builder only records the intent + provenance.
+        [$customerIsGuest, $customerAccountEmail, $sourceCustomerId, $sourceGroupId] =
+            $this->parseCustomer($order);
+
         return new OrderDraft(
             storeId: $storeId,
             extOrderId: $extOrderId,
@@ -86,8 +91,82 @@ class OrderDraftBuilder
             shippingDescription: $this->nullableString($order['shipping_description'] ?? null),
             items: $items,
             totals: $totals,
-            paymentMethod: $this->resolvePaymentMethod($order)
+            paymentMethod: $this->resolvePaymentMethod($order),
+            customerIsGuest: $customerIsGuest,
+            customerAccountEmail: $customerAccountEmail,
+            sourceCustomerId: $sourceCustomerId,
+            sourceGroupId: $sourceGroupId
         );
+    }
+
+    /**
+     * Interpret the order payload's sibling `customer` block (0.4). Provenance-only fields
+     * (`source_customer_id`, `group_id`) are recorded but MUST NOT drive destination assignment.
+     *
+     * Backward compatibility: a payload with NO `customer` block is a legacy (pre-0.4) order and is
+     * treated as an explicit guest — the exact 0.3 behaviour (guest / NOT_LOGGED_IN). A block that IS
+     * present must declare a boolean `is_guest`, and a non-guest must carry an `email` to resolve by;
+     * both are terminal contract errors otherwise (never a silent guest fallback).
+     *
+     * @param array<string, mixed> $order
+     * @return array{0: bool, 1: ?string, 2: ?string, 3: ?string} [isGuest, accountEmail, sourceCustomerId, sourceGroupId]
+     * @throws MaterialisationException
+     */
+    private function parseCustomer(array $order): array
+    {
+        $customer = $order['customer'] ?? null;
+        if (!is_array($customer) || $customer === []) {
+            return [true, null, null, null];
+        }
+
+        if (!array_key_exists('is_guest', $customer)) {
+            throw new MaterialisationException(
+                'customer block is present but has no is_guest flag.',
+                MaterialisationException::REASON_MISSING_FIELD,
+                false
+            );
+        }
+        $isGuest = $this->toStrictBool($customer['is_guest']);
+        if ($isGuest === null) {
+            throw new MaterialisationException(
+                'customer.is_guest must be a boolean.',
+                MaterialisationException::REASON_MISSING_FIELD,
+                false
+            );
+        }
+
+        $sourceCustomerId = $this->nullableString($customer['source_customer_id'] ?? null);
+        $sourceGroupId = $this->nullableString($customer['group_id'] ?? null);
+
+        if ($isGuest) {
+            return [true, null, $sourceCustomerId, $sourceGroupId];
+        }
+
+        $accountEmail = $this->firstNonEmpty((string) ($customer['email'] ?? ''));
+        if ($accountEmail === '') {
+            throw new MaterialisationException(
+                'Non-guest customer block has no email to resolve the destination customer.',
+                MaterialisationException::REASON_MISSING_FIELD,
+                false
+            );
+        }
+
+        return [false, $accountEmail, $sourceCustomerId, $sourceGroupId];
+    }
+
+    /** Strict boolean coercion for the contract flag: true/false only (accepts 1/0/"1"/"0"/"true"/"false"). */
+    private function toStrictBool(mixed $value): ?bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        if ($value === 1 || $value === '1' || $value === 'true') {
+            return true;
+        }
+        if ($value === 0 || $value === '0' || $value === 'false') {
+            return false;
+        }
+        return null;
     }
 
     /**

@@ -16,6 +16,7 @@ use Magento\Sales\Model\Order\AddressFactory as OrderAddressFactory;
 use Magento\Sales\Model\Order\ItemFactory as OrderItemFactory;
 use Magento\Sales\Model\Order\PaymentFactory as OrderPaymentFactory;
 use Magento\Sales\Model\OrderFactory;
+use Magento\Store\Model\StoreManagerInterface;
 
 /**
  * Creates a native Magento sales order from an {@see OrderDraft} by **direct construction** (no quote),
@@ -39,7 +40,9 @@ class NativeOrderGateway implements NativeOrderGatewayInterface
         private readonly OrderAddressFactory $orderAddressFactory,
         private readonly OrderPaymentFactory $orderPaymentFactory,
         private readonly ProductRepositoryInterface $productRepository,
-        private readonly OrderRepositoryInterface $orderRepository
+        private readonly OrderRepositoryInterface $orderRepository,
+        private readonly StoreManagerInterface $storeManager,
+        private readonly CustomerLinkPlanner $customerLinkPlanner
     ) {
     }
 
@@ -54,11 +57,9 @@ class NativeOrderGateway implements NativeOrderGatewayInterface
         // ext_order_id (and again in a status-history comment below) so B↔A is always traceable.
         $order->setExtOrderId($draft->extOrderId);
 
-        $order->setCustomerIsGuest(true);
-        $order->setCustomerGroupId(Group::NOT_LOGGED_IN_ID);
-        $order->setCustomerEmail($draft->customerEmail);
-        $order->setCustomerFirstname($draft->customerFirstname);
-        $order->setCustomerLastname($draft->customerLastname);
+        // 0.4: guest stays guest; a non-guest links to the resolved DESTINATION customer (or the whole
+        // materialisation fails terminally if no match — never a silent guest).
+        $this->applyCustomer($order, $draft);
 
         $currency = $draft->currencyCode !== '' ? $draft->currencyCode : 'USD';
         $order->setOrderCurrencyCode($currency);
@@ -99,6 +100,39 @@ class NativeOrderGateway implements NativeOrderGatewayInterface
         $saved = $this->orderRepository->save($order);
 
         return (int) $saved->getEntityId();
+    }
+
+    /**
+     * Apply the 0.4 customer treatment. Resolution is scoped to the order store's website; a non-guest
+     * that resolves to no destination customer throws a terminal {@see MaterialisationException} out of
+     * {@see CustomerLinkPlanner::plan()} — the whole save then rolls back (terminal failure), never a guest.
+     *
+     * The destination customer_id + customer_group_id come ONLY from the resolved account; the source's
+     * source_customer_id / group_id are never assigned here.
+     *
+     * @throws MaterialisationException
+     */
+    private function applyCustomer(Order $order, OrderDraft $draft): void
+    {
+        $websiteId = (int) $this->storeManager->getStore($draft->storeId)->getWebsiteId();
+        $plan = $this->customerLinkPlanner->plan($draft, $websiteId);
+
+        if ($plan->isGuest || $plan->customer === null) {
+            $order->setCustomerIsGuest(true);
+            $order->setCustomerGroupId(Group::NOT_LOGGED_IN_ID);
+            $order->setCustomerEmail($draft->customerEmail);
+            $order->setCustomerFirstname($draft->customerFirstname);
+            $order->setCustomerLastname($draft->customerLastname);
+            return;
+        }
+
+        $customer = $plan->customer;
+        $order->setCustomerIsGuest(false);
+        $order->setCustomerId($customer->customerId);
+        $order->setCustomerGroupId($customer->groupId);
+        $order->setCustomerEmail($customer->email !== '' ? $customer->email : $draft->customerEmail);
+        $order->setCustomerFirstname($customer->firstname ?? $draft->customerFirstname);
+        $order->setCustomerLastname($customer->lastname ?? $draft->customerLastname);
     }
 
     /**

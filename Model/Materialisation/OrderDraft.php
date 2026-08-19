@@ -43,7 +43,16 @@ class OrderDraft
         public readonly ?string $shippingDescription,
         public readonly array $items,
         public readonly array $totals,
-        public readonly string $paymentMethod
+        public readonly string $paymentMethod,
+        // --- 0.4 customer linking ---
+        // Whether the source explicitly declared this order a genuine guest. Defaults TRUE so a draft
+        // built from a pre-0.4 payload (no `customer` block) keeps the 0.3 guest behaviour.
+        public readonly bool $customerIsGuest = true,
+        // The customer-account email to resolve the DESTINATION customer by (non-guest only); null for guests.
+        public readonly ?string $customerAccountEmail = null,
+        // Provenance ONLY — the source's ids. Never reused as a destination id / group (kept for audit only).
+        public readonly ?string $sourceCustomerId = null,
+        public readonly ?string $sourceGroupId = null
     ) {
     }
 }

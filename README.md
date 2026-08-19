@@ -1,6 +1,6 @@
 # Venuno Order Import — Magento 2 module (`venuno/module-order-import`)
 
-**Release 0.3 — idempotent order import + native order materialisation.**
+**Release 0.4 — idempotent order import + native order materialisation + destination customer linking.**
 
 This module is the **destination-side contract** a Magento 2 store installs so that [Venuno](https://venuno.io)
 can verify the connection, idempotently accept replicated orders, and — when materialisation is enabled —
@@ -11,8 +11,8 @@ It exposes four REST endpoints, each authenticated with a Venuno **per-environme
 | Method & path | Returns |
 |---|---|
 | `GET /V1/venuno/health` | `{"status":"ok"}` |
-| `GET /V1/venuno/version` | `{"module_version":"0.3.0","magento_version":"2.4.7","magento_edition":"Community"}` |
-| `GET /V1/venuno/capabilities` | `{"order_import":true,"order_materialisation":true,"contract_version":"0.3",…}` |
+| `GET /V1/venuno/version` | `{"module_version":"0.4.0","magento_version":"2.4.7","magento_edition":"Community"}` |
+| `GET /V1/venuno/capabilities` | `{"order_import":true,"order_materialisation":true,"contract_version":"0.4",…}` |
 | `POST /V1/venuno/orders/import` | `{"accepted":true,"duplicate":false,"replay_key":"magento:…","import_status":"imported","magento_order_id":1234,"message":"Order created."}` |
 
 See the ADRs for rationale and stability commitments:
@@ -20,7 +20,8 @@ See the ADRs for rationale and stability commitments:
 [ADR-0002](docs/adr/ADR-0002-import-domain-contract.md) (import-domain identity + replay contract),
 [ADR-0003](docs/adr/ADR-0003-order-import-intake.md) (idempotent intake / staging),
 [ADR-0004](docs/adr/ADR-0004-replay-key-column-width.md) (replay_key column width, 0.2.1),
-[ADR-0005](docs/adr/ADR-0005-order-materialisation.md) (native order materialisation, 0.3).
+[ADR-0005](docs/adr/ADR-0005-order-materialisation.md) (native order materialisation, 0.3),
+[ADR-0006](docs/adr/ADR-0006-customer-linking.md) (destination customer linking, 0.4).
 
 ## Requirements
 

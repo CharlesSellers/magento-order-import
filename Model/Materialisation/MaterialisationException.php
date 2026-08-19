@@ -23,6 +23,8 @@ class MaterialisationException extends \RuntimeException
     public const REASON_NO_ITEMS = 'no_items';
     public const REASON_UNKNOWN_SKU = 'unknown_sku';
     public const REASON_ORDER_CREATE_FAILED = 'order_create_failed';
+    /** A non-guest import resolved to no destination customer (email not found in the order's website). */
+    public const REASON_CUSTOMER_NOT_FOUND = 'customer_not_found';
 
     public function __construct(
         string $message,

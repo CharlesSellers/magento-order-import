@@ -121,6 +121,57 @@ final class OrderDraftBuilderTest extends TestCase
             $this->builder->fromImportRow($this->row(['store_id' => ''], ['source_store_id' => ''])));
     }
 
+    // --- 0.4 customer linking: parsing the sibling `customer` block ---
+
+    public function testLegacyPayloadWithoutCustomerBlockStaysGuest(): void
+    {
+        // No `customer` block => pre-0.4 payload => explicit guest (the 0.3 behaviour), the documented fallback.
+        $draft = $this->builder->fromImportRow($this->row());
+        self::assertTrue($draft->customerIsGuest);
+        self::assertNull($draft->customerAccountEmail);
+        self::assertNull($draft->sourceCustomerId);
+        self::assertNull($draft->sourceGroupId);
+    }
+
+    public function testExplicitGuestCustomerBlockIsGuest(): void
+    {
+        $draft = $this->builder->fromImportRow($this->row([
+            'customer' => ['is_guest' => true, 'email' => 'ignored@example.com', 'group_id' => '0', 'source_customer_id' => '0'],
+        ]));
+        self::assertTrue($draft->customerIsGuest);
+        self::assertNull($draft->customerAccountEmail, 'a guest carries no resolution email');
+    }
+
+    public function testNonGuestCustomerBlockCarriesResolutionEmailAndProvenanceOnly(): void
+    {
+        $draft = $this->builder->fromImportRow($this->row([
+            'customer' => ['is_guest' => false, 'email' => 'account@example.com', 'group_id' => '5', 'source_customer_id' => '888'],
+        ]));
+        self::assertFalse($draft->customerIsGuest);
+        self::assertSame('account@example.com', $draft->customerAccountEmail);
+        // Provenance is recorded but is NOT used for assignment (the gateway resolves the destination customer).
+        self::assertSame('888', $draft->sourceCustomerId);
+        self::assertSame('5', $draft->sourceGroupId);
+    }
+
+    public function testRejectsNonGuestCustomerBlockWithoutEmail(): void
+    {
+        $this->assertReason(MaterialisationException::REASON_MISSING_FIELD, fn () =>
+            $this->builder->fromImportRow($this->row(['customer' => ['is_guest' => false]])));
+    }
+
+    public function testRejectsCustomerBlockWithoutIsGuestFlag(): void
+    {
+        $this->assertReason(MaterialisationException::REASON_MISSING_FIELD, fn () =>
+            $this->builder->fromImportRow($this->row(['customer' => ['email' => 'x@example.com']])));
+    }
+
+    public function testRejectsCustomerBlockWithNonBooleanIsGuest(): void
+    {
+        $this->assertReason(MaterialisationException::REASON_MISSING_FIELD, fn () =>
+            $this->builder->fromImportRow($this->row(['customer' => ['is_guest' => 'maybe', 'email' => 'x@example.com']])));
+    }
+
     /** Every builder failure is a terminal data problem — never retryable. */
     private function assertReason(string $reason, callable $fn): void
     {

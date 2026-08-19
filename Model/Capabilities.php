@@ -13,8 +13,11 @@ use Venuno\OrderImport\Api\Data\CapabilitiesResultInterfaceFactory;
 
 class Capabilities implements CapabilitiesInterface
 {
-    /** The import-domain contract version. 0.2 added the intake; 0.3 adds native order materialisation. */
-    public const CONTRACT_VERSION = '0.3';
+    /**
+     * The import-domain contract version. 0.2 added the intake; 0.3 adds native order materialisation;
+     * 0.4 adds destination customer linking (the order payload's sibling `customer` block).
+     */
+    public const CONTRACT_VERSION = '0.4';
 
     /**
      * Store-aware source identity a future import will require. NEVER increment_id alone — it is

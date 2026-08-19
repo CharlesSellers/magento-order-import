@@ -36,4 +36,9 @@
                 type="Venuno\OrderImport\Model\Materialisation\NativeOrderGateway"/>
     <preference for="Venuno\OrderImport\Model\Materialisation\TransactionRunnerInterface"
                 type="Venuno\OrderImport\Model\Materialisation\MagentoTransactionRunner"/>
+
+    <!-- Materialisation (0.4): destination customer linking. The link decision is the Magento-free
+         CustomerLinkPlanner; the (email, website) lookup seam is bound to its Magento implementation. -->
+    <preference for="Venuno\OrderImport\Model\Materialisation\DestinationCustomerResolverInterface"
+                type="Venuno\OrderImport\Model\Materialisation\MagentoDestinationCustomerResolver"/>
 </config>
