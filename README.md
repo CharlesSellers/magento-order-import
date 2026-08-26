@@ -38,7 +38,7 @@ Packagist, so it must be registered as a repository before `require`). No authen
 composer config repositories.venuno-order-import vcs https://github.com/CharlesSellers/magento-order-import.git
 
 # Require it (pin the contract version you have verified against):
-composer require venuno/module-order-import:^0.3
+composer require venuno/module-order-import:^0.4
 
 # Enable and install:
 bin/magento module:enable Venuno_OrderImport
@@ -82,7 +82,7 @@ TOKEN=REPLACE_WITH_A_LONG_RANDOM_SECRET
 BASE=https://store.example.com/rest/V1
 
 curl -s "$BASE/venuno/health"       -H "Authorization: Bearer $TOKEN"   # {"status":"ok"}
-curl -s "$BASE/venuno/version"      -H "Authorization: Bearer $TOKEN"   # {"module_version":"0.3.0",…}
+curl -s "$BASE/venuno/version"      -H "Authorization: Bearer $TOKEN"   # {"module_version":"0.4.0",…}
 curl -s "$BASE/venuno/capabilities" -H "Authorization: Bearer $TOKEN"   # {"order_import":true,"order_materialisation":…}
 ```
 
@@ -114,7 +114,7 @@ curl -s -X POST "$BASE/venuno/orders/import" -H "Authorization: Bearer $TOKEN" \
       "source_website_id": "4", "source_order_entity_id": "212733",
       "source_order_increment_id": "100000123", "source_order_display_number": "100000123",
       "original_created_at": "2026-06-23 08:11:36",
-      "order": "{\"header\":{\"increment_id\":\"100000123\"},\"billing_address\":{\"email\":\"a@b.com\",\"firstname\":\"A\",\"lastname\":\"B\"},\"line_items\":[{\"sku\":\"ABC\",\"qty_ordered\":1,\"price\":10,\"row_total\":10}],\"totals\":{\"grand_total\":10}}"
+      "order": "{\"header\":{\"increment_id\":\"100000123\"},\"customer\":{\"email\":\"a@b.com\",\"firstname\":\"A\",\"lastname\":\"B\",\"source_customer_is_guest\":false,\"registration_required\":true,\"account_reference\":\"BC061-5\",\"account_reference_attribute\":\"short_account_ref\"},\"billing_address\":{\"email\":\"a@b.com\",\"firstname\":\"A\",\"lastname\":\"B\"},\"line_items\":[{\"sku\":\"ABC\",\"qty_ordered\":1,\"price\":10,\"row_total\":10}],\"totals\":{\"grand_total\":10}}"
     }
   }'
 ```
@@ -146,6 +146,25 @@ Guarantees (see [ADR-0005](docs/adr/ADR-0005-order-materialisation.md)):
 Payment is recorded as an **offline** method (default `checkmo`) — no funds are captured; the order is a
 faithful record, not a new sale.
 
+## Registered customer and account reference (0.4)
+
+When `customer.registration_required` is true, materialisation resolves the destination customer by
+website-scoped email and, where configured, `account_reference`. It attaches the destination customer's
+local id/group and fails closed if the identity is missing, ambiguous or conflicting. A source guest is
+not allowed to become a destination guest under this policy.
+
+The effective account identity is persisted on the order and returned by the standard sales-order API:
+
+```json
+"extension_attributes": {
+  "venuno_account_reference": "BC061-5",
+  "venuno_account_name": "Example Business Ltd"
+}
+```
+
+The XML/SFTP consumer should read these fields and quarantine an unexpected omission instead of emitting
+`UNKNOWN`. See [ADR-0006](docs/adr/ADR-0006-customer-linking.md).
+
 ## Versioning & contract stability
 
 - `module_version` is the **contract** version, defined in [`Model/Version.php`](Model/Version.php) and
@@ -160,6 +179,8 @@ faithful record, not a new sale.
   ```bash
   composer install && composer test:unit
   ```
+  When using an existing Magento checkout for dependencies:
+  `VENUNO_MAGENTO_AUTOLOAD=/path/to/magento/vendor/autoload.php /path/to/magento/vendor/bin/phpunit -c phpunit.xml.dist`.
 - **Integration** (real Magento; `dev/tests/integration`): end-to-end materialisation, idempotent replay,
   and unknown-SKU rollback — the live validation gate before enabling `materialise` in production. See
   [`Test/Integration/README.md`](Test/Integration/README.md).
@@ -175,7 +196,8 @@ faithful record, not a new sale.
 │   ├── module.xml          # module declaration (sequenced after Magento_Webapi)
 │   ├── webapi.xml          # the REST routes (anonymous ACL; token enforced in services)
 │   ├── di.xml              # service + DTO + materialisation preferences
-│   └── db_schema.xml       # venuno_order_import idempotency + staging + materialisation ledger
+│   ├── db_schema.xml       # import ledger + sales-order account-reference columns
+│   └── extension_attributes.xml # standard order API account-reference fields
 ├── Api/                    # webapi service + DTO interfaces (stable JSON shapes)
 ├── Model/
 │   ├── Health.php · Version.php · Capabilities.php
@@ -194,5 +216,5 @@ faithful record, not a new sale.
 ├── Test/
 │   ├── Unit/Materialisation/       # Magento-free unit tests
 │   └── Integration/Materialisation/# real-Magento end-to-end tests
-└── docs/adr/                       # ADR-0001 … ADR-0005
+└── docs/adr/                       # ADR-0001 … ADR-0006
 ```

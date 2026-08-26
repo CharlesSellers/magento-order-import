@@ -56,4 +56,10 @@
             <column name="source_order_entity_id"/>
         </index>
     </table>
+    <table name="sales_order" resource="sales" engine="innodb" comment="Sales Flat Order">
+        <column xsi:type="varchar" name="venuno_account_reference" length="128" nullable="true"
+                comment="Venuno Account Reference"/>
+        <column xsi:type="varchar" name="venuno_account_name" length="255" nullable="true"
+                comment="Venuno Account Name"/>
+    </table>
 </schema>

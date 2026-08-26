@@ -40,8 +40,10 @@ class OrderDraftBuilder
         $shipping = $this->arrayField($order, 'shipping_address');
         $header = $this->arrayField($order, 'header');
         $isVirtual = $this->toBool($header['is_virtual'] ?? false);
+        $customer = $this->parseCustomer($order);
 
         $email = $this->firstNonEmpty(
+            (string) ($customer['email'] ?? ''),
             (string) ($billing['email'] ?? ''),
             (string) ($shipping['email'] ?? '')
         );
@@ -68,11 +70,6 @@ class OrderDraftBuilder
             (string) ($order['order_currency_code'] ?? '')
         );
 
-        // 0.4: interpret the sibling `customer` block (guest vs linked). The resolution itself is
-        // Magento-side (NativeOrderGateway); the builder only records the intent + provenance.
-        [$customerIsGuest, $customerAccountEmail, $sourceCustomerId, $sourceGroupId] =
-            $this->parseCustomer($order);
-
         return new OrderDraft(
             storeId: $storeId,
             extOrderId: $extOrderId,
@@ -81,8 +78,8 @@ class OrderDraftBuilder
             sourceEntityId: (string) ($row['source_order_entity_id'] ?? ''),
             currencyCode: $currency,
             customerEmail: $email,
-            customerFirstname: $this->nullableString($billing['firstname'] ?? null),
-            customerLastname: $this->nullableString($billing['lastname'] ?? null),
+            customerFirstname: $this->nullableString($customer['firstname'] ?? $billing['firstname'] ?? null),
+            customerLastname: $this->nullableString($customer['lastname'] ?? $billing['lastname'] ?? null),
             isVirtual: $isVirtual,
             billingAddress: $billing,
             // A virtual order carries no shipment; a missing shipping block falls back to billing.
@@ -92,66 +89,123 @@ class OrderDraftBuilder
             items: $items,
             totals: $totals,
             paymentMethod: $this->resolvePaymentMethod($order),
-            customerIsGuest: $customerIsGuest,
-            customerAccountEmail: $customerAccountEmail,
-            sourceCustomerId: $sourceCustomerId,
-            sourceGroupId: $sourceGroupId
+            sourceCustomerIsGuest: $customer['sourceIsGuest'],
+            customerRegistrationRequired: $customer['registrationRequired'],
+            customerAccountEmail: $customer['email'],
+            customerAccountName: $this->firstNullable(
+                $this->nullableString($billing['company'] ?? null),
+                $this->nullableString(trim(
+                    (string) ($customer['firstname'] ?? '') . ' ' . (string) ($customer['lastname'] ?? '')
+                ))
+            ),
+            accountReference: $customer['accountReference'],
+            accountReferenceAttribute: $customer['accountReferenceAttribute'],
+            sourceCustomerId: $customer['sourceCustomerId'],
+            sourceGroupId: $customer['sourceGroupId']
         );
     }
 
     /**
-     * Interpret the order payload's sibling `customer` block (0.4). Provenance-only fields
-     * (`source_customer_id`, `group_id`) are recorded but MUST NOT drive destination assignment.
+     * Interpret Venuno's current customer-replication block. Source ids and groups are provenance only;
+     * they never drive destination assignment.
      *
-     * Backward compatibility: a payload with NO `customer` block is a legacy (pre-0.4) order and is
-     * treated as an explicit guest — the exact 0.3 behaviour (guest / NOT_LOGGED_IN). A block that IS
-     * present must declare a boolean `is_guest`, and a non-guest must carry an `email` to resolve by;
-     * both are terminal contract errors otherwise (never a silent guest fallback).
+     * Backward compatibility: no block is a pre-0.4 guest payload. A present block declares
+     * `source_customer_is_guest` and `registration_required`. Registration-required orders always need
+     * an email so even a source guest can resolve to a registered destination account; there is no guest
+     * fallback in that mode.
      *
      * @param array<string, mixed> $order
-     * @return array{0: bool, 1: ?string, 2: ?string, 3: ?string} [isGuest, accountEmail, sourceCustomerId, sourceGroupId]
+     * @return array{
+     *   sourceIsGuest:bool,registrationRequired:bool,email:?string,firstname:?string,lastname:?string,
+     *   sourceCustomerId:?string,sourceGroupId:?string,accountReference:?string,
+     *   accountReferenceAttribute:?string
+     * }
      * @throws MaterialisationException
      */
     private function parseCustomer(array $order): array
     {
         $customer = $order['customer'] ?? null;
         if (!is_array($customer) || $customer === []) {
-            return [true, null, null, null];
+            return [
+                'sourceIsGuest' => true,
+                'registrationRequired' => false,
+                'email' => null,
+                'firstname' => null,
+                'lastname' => null,
+                'sourceCustomerId' => null,
+                'sourceGroupId' => null,
+                'accountReference' => null,
+                'accountReferenceAttribute' => null,
+            ];
         }
 
-        if (!array_key_exists('is_guest', $customer)) {
+        if (!array_key_exists('source_customer_is_guest', $customer)) {
             throw new MaterialisationException(
-                'customer block is present but has no is_guest flag.',
+                'customer block is present but has no source_customer_is_guest flag.',
                 MaterialisationException::REASON_MISSING_FIELD,
                 false
             );
         }
-        $isGuest = $this->toStrictBool($customer['is_guest']);
-        if ($isGuest === null) {
+        $sourceIsGuest = $this->toStrictBool($customer['source_customer_is_guest']);
+        if ($sourceIsGuest === null) {
             throw new MaterialisationException(
-                'customer.is_guest must be a boolean.',
+                'customer.source_customer_is_guest must be a boolean.',
                 MaterialisationException::REASON_MISSING_FIELD,
                 false
             );
         }
 
+        if (!array_key_exists('registration_required', $customer)) {
+            throw new MaterialisationException(
+                'customer block is present but has no registration_required flag.',
+                MaterialisationException::REASON_MISSING_FIELD,
+                false
+            );
+        }
+        $registrationRequired = $this->toStrictBool($customer['registration_required']);
+        if ($registrationRequired === null) {
+            throw new MaterialisationException(
+                'customer.registration_required must be a boolean.',
+                MaterialisationException::REASON_MISSING_FIELD,
+                false
+            );
+        }
+
+        $email = $this->nullableString($customer['email'] ?? null);
         $sourceCustomerId = $this->nullableString($customer['source_customer_id'] ?? null);
-        $sourceGroupId = $this->nullableString($customer['group_id'] ?? null);
+        $sourceGroupId = $this->nullableString($customer['source_customer_group_id'] ?? null);
+        $accountReference = $this->nullableString($customer['account_reference'] ?? null);
+        $accountReferenceAttribute = $this->nullableString($customer['account_reference_attribute'] ?? null);
 
-        if ($isGuest) {
-            return [true, null, $sourceCustomerId, $sourceGroupId];
+        if ($accountReferenceAttribute !== null
+            && preg_match('/^[a-z][a-z0-9_]{0,63}$/', $accountReferenceAttribute) !== 1
+        ) {
+            throw new MaterialisationException(
+                'customer.account_reference_attribute is not a valid Magento attribute code.',
+                MaterialisationException::REASON_BAD_PAYLOAD,
+                false
+            );
         }
 
-        $accountEmail = $this->firstNonEmpty((string) ($customer['email'] ?? ''));
-        if ($accountEmail === '') {
+        if (($registrationRequired || !$sourceIsGuest) && $email === null) {
             throw new MaterialisationException(
-                'Non-guest customer block has no email to resolve the destination customer.',
+                'Customer must be registered but has no email to resolve the destination account.',
                 MaterialisationException::REASON_MISSING_FIELD,
                 false
             );
         }
 
-        return [false, $accountEmail, $sourceCustomerId, $sourceGroupId];
+        return [
+            'sourceIsGuest' => $sourceIsGuest,
+            'registrationRequired' => $registrationRequired,
+            'email' => $email,
+            'firstname' => $this->nullableString($customer['firstname'] ?? null),
+            'lastname' => $this->nullableString($customer['lastname'] ?? null),
+            'sourceCustomerId' => $sourceCustomerId,
+            'sourceGroupId' => $sourceGroupId,
+            'accountReference' => $accountReference,
+            'accountReferenceAttribute' => $accountReferenceAttribute,
+        ];
     }
 
     /** Strict boolean coercion for the contract flag: true/false only (accepts 1/0/"1"/"0"/"true"/"false"). */
@@ -331,6 +385,16 @@ class OrderDraftBuilder
         }
         $string = trim((string) $value);
         return $string === '' ? null : $string;
+    }
+
+    private function firstNullable(?string ...$values): ?string
+    {
+        foreach ($values as $value) {
+            if ($value !== null && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+        return null;
     }
 
     private function toBool(mixed $value): bool

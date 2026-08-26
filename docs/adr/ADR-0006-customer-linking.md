@@ -1,60 +1,59 @@
-# ADR-0006 — Destination customer linking (0.4)
+# ADR-0006 — Registered-customer linking and account-reference propagation (0.4)
 
 Status: Accepted (0.4.0)
 
 ## Context
 
-Through 0.3 every materialised order was created as a **guest** (`customer_is_guest = true`,
-`NOT_LOGGED_IN`). For B2B replication the destination order should belong to the **destination**
-Magento customer account where one exists, so it shows in the customer's order history and carries the
-right customer group.
+Through 0.3 every materialised order was created as a guest. That leaves `sales_order.customer_id`
+empty, so downstream API/SFTP consumers cannot obtain the customer's account reference and emit
+`UNKNOWN` even when the source Magento customer has `short_account_ref`.
 
-The source system knows its own customer, but a source id is meaningless in the destination store. The
-order payload now carries a sibling `customer` block:
+Venuno 0.4 carries customer identity independently of billing and shipping contacts:
 
 ```json
-"customer": { "email": "buyer@example.com", "group_id": 7, "is_guest": false, "source_customer_id": 5567 }
+"customer": {
+  "email": "buyer@example.com",
+  "firstname": "Ada",
+  "lastname": "Lovelace",
+  "source_customer_id": "5567",
+  "source_customer_group_id": "7",
+  "source_customer_is_guest": false,
+  "registration_required": true,
+  "account_reference": "BC061-5",
+  "account_reference_attribute": "short_account_ref"
+}
 ```
 
-`source_customer_id` and `group_id` are **provenance only** — they describe the *source* and MUST NOT be
-reused as destination ids (a destination id/group is only meaningful after resolving the account in B).
+Source ids and groups are provenance only. They are not safe destination ids.
 
 ## Decision
 
-- **Explicit genuine guest** (`is_guest: true`) → keep the 0.3 guest behaviour (guest / `NOT_LOGGED_IN`).
-- **Non-guest** (`is_guest: false`) → resolve the destination customer by **email within the order
-  store's website** (`CustomerRepositoryInterface::get(email, websiteId)`; an account is unique per
-  `(email, website)`), then set the native order's local `customer_id`, local `customer_group_id`
-  (the **destination** account's group) and `customer_is_guest = false`.
-- **Unmatched non-guest** → fail terminally through the existing failure path
-  (`MaterialisationException` reason `customer_not_found`, non-retryable → HTTP 422). The whole
-  materialisation rolls back — **never** a silent guest order.
-- **Never** reuse `source_customer_id` as a destination id; **never** trust the source `group_id` for
-  assignment. They are recorded on the draft for audit only.
+- `registration_required: true` always requires a registered destination customer, including when the
+  source order was marked as a guest. There is no guest fallback.
+- Resolve independently by email within the order store's website and, when supplied, by the configured
+  account-reference attribute. If both identify customers, they must identify the same customer.
+- Use the destination customer's id and group on the native order. Never copy source ids/groups.
+- The effective account reference is the source value or the resolved destination attribute. If both
+  exist they must agree (case-insensitively). A registration-required import with neither fails closed.
+- Persist the effective reference and account name on `sales_order`; expose both through the standard
+  order API as `extension_attributes.venuno_account_reference` and
+  `extension_attributes.venuno_account_name`.
+- Missing, ambiguous or conflicting identity is a terminal 422 data failure. The order transaction
+  rolls back and remains replayable after the data is corrected.
+- A source guest may remain a guest only when `registration_required` is explicitly false. A legacy
+  payload with no customer block keeps the 0.3 guest behaviour for rolling compatibility.
 
-### Backward compatibility (chosen fallback)
+## Why the module does not create unmatched customers
 
-A payload with **no `customer` block** is a pre-0.4 order and is treated as an **explicit guest** — the
-exact 0.3 behaviour. This keeps in-flight 0.3 producers working during the rollout. A `customer` block
-that *is* present must declare a boolean `is_guest`, and a non-guest must carry an `email`; both are
-terminal contract errors otherwise (never a silent guest fallback).
-
-## Design / testability
-
-The pure, Magento-free core stays unit-testable behind local seams (mirroring the 0.3 pattern):
-
-- `OrderDraftBuilder` parses the block into the draft's intent (`customerIsGuest`, `customerAccountEmail`,
-  and provenance `sourceCustomerId`/`sourceGroupId`).
-- `CustomerLinkPlanner` (pure) decides guest vs linked over the `DestinationCustomerResolverInterface`
-  seam and raises the terminal `customer_not_found` for an unmatched non-guest.
-- `MagentoDestinationCustomerResolver` (Magento) implements the `(email, website)` lookup;
-  `NativeOrderGateway` applies the plan. Both are covered by the integration suite.
+Jangro customer accounts determine customer group, contract pricing and restricted-category access.
+Creating an unmatched account with a guessed/default group would make the order appear successful while
+silently assigning the wrong commercial permissions. Every Jangro customer is expected to be registered,
+so an unmatched account is treated as a fixable data/migration problem instead.
 
 ## Consequences
 
-- Registered-customer orders now materialise against the correct destination account and group; guests
-  are unchanged; an unmatched non-guest **fails terminally** (`customer_not_found`, HTTP 422) and the
-  import row remains in `failed` status for operator action, rather than creating a mis-attributed
-  guest order.
-- No schema change; the customer block rides inside the existing opaque `order` payload. (A Sage
-  AccountReference attribute is explicitly out of scope for 0.4.)
+- Imported Jangro orders have a real `customer_id`, the correct destination group and an API-visible
+  account reference for the XML exporter.
+- The XML process no longer needs to invent an `UNKNOWN` fallback. It should read the Venuno extension
+  attribute and reject/quarantine an order if it is unexpectedly absent.
+- Existing 0.3 producers keep their guest behavior until they send the explicit 0.4 customer block.

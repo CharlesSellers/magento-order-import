@@ -133,6 +133,8 @@ class NativeOrderGateway implements NativeOrderGatewayInterface
         $order->setCustomerEmail($customer->email !== '' ? $customer->email : $draft->customerEmail);
         $order->setCustomerFirstname($customer->firstname ?? $draft->customerFirstname);
         $order->setCustomerLastname($customer->lastname ?? $draft->customerLastname);
+        $order->setData('venuno_account_reference', $plan->accountReference);
+        $order->setData('venuno_account_name', $plan->accountName);
     }
 
     /**

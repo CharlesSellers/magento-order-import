@@ -43,7 +43,7 @@ final class CustomerLinkingIntegrationTest extends TestCase
 
     /**
      * A non-guest order links to the destination customer resolved by (email, website) — with the
-     * DESTINATION group, never the source group_id carried in the payload.
+     * DESTINATION group, never the source_customer_group_id carried in the payload.
      *
      * @magentoDataFixture Magento/Catalog/_files/product_simple.php
      * @magentoDataFixture Magento/Customer/_files/customer.php
@@ -54,9 +54,13 @@ final class CustomerLinkingIntegrationTest extends TestCase
 
         $key = 'magento:link-' . uniqid();
         $this->stage($key, $this->order('simple', [
-            'is_guest' => false,
             'email' => 'customer@example.com',
-            'group_id' => '999',          // provenance only — must be ignored
+            'firstname' => 'Fixture',
+            'lastname' => 'Customer',
+            'source_customer_is_guest' => false,
+            'registration_required' => true,
+            'account_reference' => 'BC061-5',
+            'source_customer_group_id' => '999', // provenance only — must be ignored
             'source_customer_id' => '777', // provenance only — must be ignored
         ]));
 
@@ -68,7 +72,13 @@ final class CustomerLinkingIntegrationTest extends TestCase
         self::assertSame(
             (int) $expected->getGroupId(),
             (int) $order->getCustomerGroupId(),
-            'group comes from the resolved destination customer, not the source group_id'
+            'group comes from the resolved destination customer, not source_customer_group_id'
+        );
+        self::assertSame('BC061-5', $order->getData('venuno_account_reference'));
+        self::assertSame(
+            'BC061-5',
+            $order->getExtensionAttributes()?->getVenunoAccountReference(),
+            'the standard order API exposes the reference through extension_attributes'
         );
     }
 
@@ -80,7 +90,11 @@ final class CustomerLinkingIntegrationTest extends TestCase
     public function testExplicitGuestCreatesAGuestOrder(): void
     {
         $key = 'magento:guest-' . uniqid();
-        $this->stage($key, $this->order('simple', ['is_guest' => true, 'email' => 'ada@example.com']));
+        $this->stage($key, $this->order('simple', [
+            'source_customer_is_guest' => true,
+            'registration_required' => false,
+            'email' => 'ada@example.com',
+        ]));
 
         $result = $this->materialiser->materialise($key);
         $order = $this->orders->get($result->magentoOrderId);
@@ -88,6 +102,60 @@ final class CustomerLinkingIntegrationTest extends TestCase
         self::assertTrue((bool) $order->getCustomerIsGuest());
         self::assertEmpty($order->getCustomerId());
         self::assertSame(Group::NOT_LOGGED_IN_ID, (int) $order->getCustomerGroupId());
+    }
+
+    /**
+     * Jangro's strict rule applies even when the source order was flagged as a guest: the destination
+     * resolves the registered account and never falls back to a guest order.
+     *
+     * @magentoDataFixture Magento/Catalog/_files/product_simple.php
+     * @magentoDataFixture Magento/Customer/_files/customer.php
+     */
+    public function testRegistrationRequiredSourceGuestLinksToRegisteredDestinationCustomer(): void
+    {
+        $expected = $this->customers->get('customer@example.com', 1);
+        $key = 'magento:required-guest-' . uniqid();
+        $this->stage($key, $this->order('simple', [
+            'email' => 'customer@example.com',
+            'firstname' => 'Fixture',
+            'lastname' => 'Customer',
+            'source_customer_is_guest' => true,
+            'registration_required' => true,
+            'account_reference' => 'BC061-5',
+        ]));
+
+        $result = $this->materialiser->materialise($key);
+        $order = $this->orders->get($result->magentoOrderId);
+
+        self::assertFalse((bool) $order->getCustomerIsGuest());
+        self::assertSame((int) $expected->getId(), (int) $order->getCustomerId());
+        self::assertSame('BC061-5', $order->getData('venuno_account_reference'));
+    }
+
+    /**
+     * @magentoDataFixture Magento/Catalog/_files/product_simple.php
+     * @magentoDataFixture Magento/Customer/_files/customer.php
+     */
+    public function testRegistrationRequiredCustomerWithoutReferenceFailsInsteadOfProducingUnknown(): void
+    {
+        $key = 'magento:no-reference-' . uniqid();
+        $this->stage($key, $this->order('simple', [
+            'email' => 'customer@example.com',
+            'source_customer_is_guest' => false,
+            'registration_required' => true,
+        ]));
+
+        try {
+            $this->materialiser->materialise($key);
+            self::fail('expected a terminal account-reference failure');
+        } catch (MaterialisationException $e) {
+            self::assertSame(MaterialisationException::REASON_ACCOUNT_REFERENCE_MISSING, $e->getReason());
+            self::assertFalse($e->isRetryable());
+        }
+
+        $row = $this->repository->findByReplayKey($key);
+        self::assertSame('failed', $row['import_status']);
+        self::assertSame(0, (int) $row['magento_order_id']);
     }
 
     /**
@@ -100,8 +168,10 @@ final class CustomerLinkingIntegrationTest extends TestCase
     {
         $key = 'magento:unmatched-' . uniqid();
         $this->stage($key, $this->order('simple', [
-            'is_guest' => false,
             'email' => 'nobody-' . uniqid() . '@example.com',
+            'source_customer_is_guest' => false,
+            'registration_required' => true,
+            'account_reference' => 'MISSING-' . uniqid(),
         ]));
 
         try {
@@ -146,7 +216,8 @@ final class CustomerLinkingIntegrationTest extends TestCase
             'header' => ['increment_id' => '100000123', 'order_currency_code' => 'USD', 'is_virtual' => 0, 'store_id' => 1],
             'customer' => $customer,
             'billing_address' => [
-                'firstname' => 'Ada', 'lastname' => 'Lovelace', 'street' => ['1 High St'],
+                'firstname' => 'Ada', 'lastname' => 'Lovelace', 'company' => 'Analytical Engines Ltd',
+                'street' => ['1 High St'],
                 'city' => 'London', 'postcode' => 'E1', 'country_id' => 'GB', 'telephone' => '01',
                 'email' => 'ada@example.com',
             ],

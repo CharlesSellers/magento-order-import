@@ -11,15 +11,14 @@ namespace Venuno\OrderImport\Model\Materialisation;
  * Decides how one order's customer is treated (0.4 customer linking). Pure PHP over the
  * {@see DestinationCustomerResolverInterface} seam, so every branch is unit-testable without Magento.
  *
- * Rules (see docs/adr — customer linking):
- *  - Explicit genuine guest ({@see OrderDraft::$customerIsGuest} true) → stays a guest; NO lookup.
- *  - Non-guest → resolve the DESTINATION customer by the account email within the ORDER STORE'S WEBSITE.
- *      - match   → link to that destination customer (its id + its group).
- *      - no match → terminal {@see MaterialisationException} (REASON_CUSTOMER_NOT_FOUND, non-retryable)
- *                   so the module fails the import terminally rather than silently creating a guest.
+ * Rules (see ADR-0006):
+ *  - A source guest may remain a guest only when `registration_required` is false.
+ *  - A registration-required order MUST resolve to a destination customer and account reference.
+ *  - Resolve independently by website-scoped email and, when supplied, account reference. Conflicting
+ *    matches fail closed rather than attributing the order to the wrong account.
  *
- * The source `source_customer_id` and `group_id` are provenance only — they are NEVER read here. The
- * destination id and destination group come exclusively from the resolved {@see ResolvedCustomer}.
+ * Source customer ids/groups are provenance only — they are NEVER used for destination assignment.
+ * The destination id and group come exclusively from the resolved {@see ResolvedCustomer}.
  */
 class CustomerLinkPlanner
 {
@@ -34,11 +33,11 @@ class CustomerLinkPlanner
      */
     public function plan(OrderDraft $draft, int $websiteId): CustomerLinkPlan
     {
-        if ($draft->customerIsGuest) {
+        if (!$draft->customerRegistrationRequired && $draft->sourceCustomerIsGuest) {
             return CustomerLinkPlan::guest();
         }
 
-        // Non-guest. A non-guest draft always carries a resolution email (OrderDraftBuilder enforces it).
+        // Any order that must link always carries a resolution email (OrderDraftBuilder enforces it).
         $email = $draft->customerAccountEmail ?? '';
         if ($email === '') {
             throw new MaterialisationException(
@@ -48,7 +47,34 @@ class CustomerLinkPlanner
             );
         }
 
-        $resolved = $this->resolver->resolveByEmailInWebsite($email, $websiteId);
+        $emailMatch = $this->resolver->resolveByEmailInWebsite(
+            $email,
+            $websiteId,
+            $draft->accountReferenceAttribute
+        );
+        $referenceMatch = null;
+        if ($draft->accountReference !== null && $draft->accountReferenceAttribute !== null) {
+            $referenceMatch = $this->resolver->resolveByAccountReferenceInWebsite(
+                $draft->accountReference,
+                $draft->accountReferenceAttribute,
+                $websiteId
+            );
+        }
+
+        if ($emailMatch !== null && $referenceMatch !== null
+            && $emailMatch->customerId !== $referenceMatch->customerId
+        ) {
+            throw new MaterialisationException(
+                sprintf(
+                    'Customer email and account reference resolve to different destination customers in website %d.',
+                    $websiteId
+                ),
+                MaterialisationException::REASON_CUSTOMER_IDENTITY_CONFLICT,
+                false
+            );
+        }
+
+        $resolved = $referenceMatch ?? $emailMatch;
         if ($resolved === null) {
             throw new MaterialisationException(
                 sprintf(
@@ -60,6 +86,39 @@ class CustomerLinkPlanner
             );
         }
 
-        return CustomerLinkPlan::linked($resolved);
+        $sourceReference = $this->nonEmpty($draft->accountReference);
+        $destinationReference = $this->nonEmpty($resolved->accountReference);
+        if ($sourceReference !== null && $destinationReference !== null
+            && strcasecmp($sourceReference, $destinationReference) !== 0
+        ) {
+            throw new MaterialisationException(
+                'Source and destination account references do not match for the resolved customer.',
+                MaterialisationException::REASON_CUSTOMER_IDENTITY_CONFLICT,
+                false
+            );
+        }
+
+        $accountReference = $sourceReference ?? $destinationReference;
+        if ($draft->customerRegistrationRequired && $accountReference === null) {
+            throw new MaterialisationException(
+                'Registration-required customer has no account reference in the source payload or destination account.',
+                MaterialisationException::REASON_ACCOUNT_REFERENCE_MISSING,
+                false
+            );
+        }
+
+        $accountName = $this->nonEmpty($draft->customerAccountName)
+            ?? $this->nonEmpty(trim(($resolved->firstname ?? '') . ' ' . ($resolved->lastname ?? '')));
+
+        return CustomerLinkPlan::linked($resolved, $accountReference, $accountName);
+    }
+
+    private function nonEmpty(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        $trimmed = trim($value);
+        return $trimmed !== '' ? $trimmed : null;
     }
 }

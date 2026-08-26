@@ -41,4 +41,9 @@
          CustomerLinkPlanner; the (email, website) lookup seam is bound to its Magento implementation. -->
     <preference for="Venuno\OrderImport\Model\Materialisation\DestinationCustomerResolverInterface"
                 type="Venuno\OrderImport\Model\Materialisation\MagentoDestinationCustomerResolver"/>
+
+    <type name="Magento\Sales\Api\OrderRepositoryInterface">
+        <plugin name="venuno_order_import_account_reference"
+                type="Venuno\OrderImport\Plugin\Sales\OrderRepositoryPlugin"/>
+    </type>
 </config>

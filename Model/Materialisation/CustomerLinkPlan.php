@@ -16,17 +16,22 @@ final class CustomerLinkPlan
 {
     private function __construct(
         public readonly bool $isGuest,
-        public readonly ?ResolvedCustomer $customer
+        public readonly ?ResolvedCustomer $customer,
+        public readonly ?string $accountReference,
+        public readonly ?string $accountName
     ) {
     }
 
     public static function guest(): self
     {
-        return new self(true, null);
+        return new self(true, null, null, null);
     }
 
-    public static function linked(ResolvedCustomer $customer): self
-    {
-        return new self(false, $customer);
+    public static function linked(
+        ResolvedCustomer $customer,
+        ?string $accountReference,
+        ?string $accountName
+    ): self {
+        return new self(false, $customer, $accountReference, $accountName);
     }
 }

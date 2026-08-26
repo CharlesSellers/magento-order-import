@@ -25,6 +25,7 @@ final class CustomerLinkPlannerTest extends TestCase
     {
         $resolver = $this->createMock(DestinationCustomerResolverInterface::class);
         $resolver->expects(self::never())->method('resolveByEmailInWebsite');
+        $resolver->expects(self::never())->method('resolveByAccountReferenceInWebsite');
 
         $plan = (new CustomerLinkPlanner($resolver))->plan($this->guestDraft(), 1);
 
@@ -38,7 +39,7 @@ final class CustomerLinkPlannerTest extends TestCase
         // Deliberately a DIFFERENT group than the source group_id (3) carried on the draft — proving the
         // destination group is used, never the source's provenance value.
         $resolver->method('resolveByEmailInWebsite')
-            ->willReturn(new ResolvedCustomer(99, 7, 'buyer@example.com', 'Bob', 'Buyer'));
+            ->willReturn(new ResolvedCustomer(99, 7, 'buyer@example.com', 'Bob', 'Buyer', 'ACC-99'));
 
         $plan = (new CustomerLinkPlanner($resolver))->plan($this->nonGuestDraft('buyer@example.com'), 1);
 
@@ -47,6 +48,8 @@ final class CustomerLinkPlannerTest extends TestCase
         self::assertSame(99, $plan->customer->customerId);
         self::assertSame(7, $plan->customer->groupId);
         self::assertSame('buyer@example.com', $plan->customer->email);
+        self::assertSame('ACC-99', $plan->accountReference);
+        self::assertSame('Example Ltd', $plan->accountName);
     }
 
     public function testUnmatchedNonGuestFailsTerminally(): void
@@ -68,26 +71,83 @@ final class CustomerLinkPlannerTest extends TestCase
         $resolver = $this->createMock(DestinationCustomerResolverInterface::class);
         $resolver->expects(self::once())
             ->method('resolveByEmailInWebsite')
-            ->with('buyer@example.com', 4)
-            ->willReturn(new ResolvedCustomer(1, 1, 'buyer@example.com', null, null));
+            ->with('buyer@example.com', 4, 'short_account_ref')
+            ->willReturn(new ResolvedCustomer(1, 1, 'buyer@example.com', null, null, 'ACC-1'));
 
         $plan = (new CustomerLinkPlanner($resolver))->plan($this->nonGuestDraft('buyer@example.com'), 4);
 
         self::assertFalse($plan->isGuest);
     }
 
+    public function testRegistrationRequiredSourceGuestMustResolveAndNeverFallsBackToGuest(): void
+    {
+        $resolver = $this->createMock(DestinationCustomerResolverInterface::class);
+        $resolver->expects(self::once())
+            ->method('resolveByEmailInWebsite')
+            ->with('guest-source@example.com', 1, 'short_account_ref')
+            ->willReturn(new ResolvedCustomer(27, 4, 'guest-source@example.com', 'Guest', 'Source', 'ACC-27'));
+
+        $plan = (new CustomerLinkPlanner($resolver))->plan(
+            $this->draft(true, true, 'guest-source@example.com'),
+            1
+        );
+
+        self::assertFalse($plan->isGuest);
+        self::assertSame(27, $plan->customer?->customerId);
+        self::assertSame('ACC-27', $plan->accountReference);
+    }
+
+    public function testRegistrationRequiredCustomerWithoutAnyAccountReferenceFailsTerminally(): void
+    {
+        $resolver = $this->createMock(DestinationCustomerResolverInterface::class);
+        $resolver->method('resolveByEmailInWebsite')
+            ->willReturn(new ResolvedCustomer(99, 7, 'buyer@example.com', 'Bob', 'Buyer'));
+
+        try {
+            (new CustomerLinkPlanner($resolver))->plan($this->nonGuestDraft('buyer@example.com'), 1);
+            self::fail('expected a terminal account-reference failure');
+        } catch (MaterialisationException $e) {
+            self::assertSame(MaterialisationException::REASON_ACCOUNT_REFERENCE_MISSING, $e->getReason());
+            self::assertFalse($e->isRetryable());
+        }
+    }
+
+    public function testConflictingEmailAndAccountReferenceMatchesFailClosed(): void
+    {
+        $resolver = $this->createMock(DestinationCustomerResolverInterface::class);
+        $resolver->method('resolveByEmailInWebsite')
+            ->willReturn(new ResolvedCustomer(10, 2, 'buyer@example.com', null, null, 'ACC-10'));
+        $resolver->method('resolveByAccountReferenceInWebsite')
+            ->willReturn(new ResolvedCustomer(11, 2, 'other@example.com', null, null, 'ACC-11'));
+
+        try {
+            (new CustomerLinkPlanner($resolver))->plan(
+                $this->draft(false, true, 'buyer@example.com', 'ACC-11'),
+                1
+            );
+            self::fail('expected a terminal identity-conflict failure');
+        } catch (MaterialisationException $e) {
+            self::assertSame(MaterialisationException::REASON_CUSTOMER_IDENTITY_CONFLICT, $e->getReason());
+            self::assertFalse($e->isRetryable());
+        }
+    }
+
     private function guestDraft(): OrderDraft
     {
-        return $this->draft(true, null);
+        return $this->draft(true, false, null);
     }
 
     private function nonGuestDraft(string $email): OrderDraft
     {
-        return $this->draft(false, $email);
+        return $this->draft(false, true, $email);
     }
 
-    private function draft(bool $isGuest, ?string $accountEmail): OrderDraft
-    {
+    private function draft(
+        bool $sourceIsGuest,
+        bool $registrationRequired,
+        ?string $accountEmail,
+        ?string $accountReference = null
+    ): OrderDraft {
         return new OrderDraft(
             storeId: 4,
             extOrderId: '100000123',
@@ -106,8 +166,12 @@ final class CustomerLinkPlannerTest extends TestCase
             items: [],
             totals: [],
             paymentMethod: 'checkmo',
-            customerIsGuest: $isGuest,
+            sourceCustomerIsGuest: $sourceIsGuest,
+            customerRegistrationRequired: $registrationRequired,
             customerAccountEmail: $accountEmail,
+            customerAccountName: 'Example Ltd',
+            accountReference: $accountReference,
+            accountReferenceAttribute: 'short_account_ref',
             sourceCustomerId: '555',
             sourceGroupId: '3'
         );

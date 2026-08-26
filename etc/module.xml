@@ -10,6 +10,8 @@
     <module name="Venuno_OrderImport">
         <sequence>
             <module name="Magento_Webapi"/>
+            <module name="Magento_Customer"/>
+            <module name="Magento_Sales"/>
         </sequence>
     </module>
 </config>

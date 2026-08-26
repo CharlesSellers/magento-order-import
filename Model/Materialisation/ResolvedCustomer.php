@@ -23,7 +23,8 @@ final class ResolvedCustomer
         public readonly int $groupId,
         public readonly string $email,
         public readonly ?string $firstname,
-        public readonly ?string $lastname
+        public readonly ?string $lastname,
+        public readonly ?string $accountReference = null
     ) {
     }
 }

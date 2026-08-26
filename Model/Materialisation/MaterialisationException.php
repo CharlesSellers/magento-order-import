@@ -25,6 +25,12 @@ class MaterialisationException extends \RuntimeException
     public const REASON_ORDER_CREATE_FAILED = 'order_create_failed';
     /** A non-guest import resolved to no destination customer (email not found in the order's website). */
     public const REASON_CUSTOMER_NOT_FOUND = 'customer_not_found';
+    /** Email and account-reference lookups identified different destination customers. */
+    public const REASON_CUSTOMER_IDENTITY_CONFLICT = 'customer_identity_conflict';
+    /** More than one destination customer carries the same account reference in one website. */
+    public const REASON_CUSTOMER_AMBIGUOUS = 'customer_ambiguous';
+    /** A registration-required order has no usable account reference from source or destination. */
+    public const REASON_ACCOUNT_REFERENCE_MISSING = 'account_reference_missing';
 
     public function __construct(
         string $message,
