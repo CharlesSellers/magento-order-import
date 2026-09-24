@@ -17,6 +17,7 @@ use Magento\Sales\Model\Order\ItemFactory as OrderItemFactory;
 use Magento\Sales\Model\Order\PaymentFactory as OrderPaymentFactory;
 use Magento\Sales\Model\OrderFactory;
 use Magento\Store\Model\StoreManagerInterface;
+use Venuno\OrderImport\Model\MaterialisationConfig;
 
 /**
  * Creates a native Magento sales order from an {@see OrderDraft} by **direct construction** (no quote),
@@ -42,16 +43,29 @@ class NativeOrderGateway implements NativeOrderGatewayInterface
         private readonly ProductRepositoryInterface $productRepository,
         private readonly OrderRepositoryInterface $orderRepository,
         private readonly StoreManagerInterface $storeManager,
-        private readonly CustomerLinkPlanner $customerLinkPlanner
+        private readonly CustomerLinkPlanner $customerLinkPlanner,
+        private readonly MaterialisationConfig $materialisationConfig,
+        private readonly SourceMetadataPersistence $sourceMetadataPersistence
     ) {
     }
 
     public function place(OrderDraft $draft): int
     {
+        $metadata = $this->materialisationConfig->preservesSourceMetadata() ? SourceOrderMetadata::fromDraft($draft) : null;
+        if ($metadata !== null) {
+            $this->sourceMetadataPersistence->assertAvailable($draft, $metadata);
+        }
         $order = $this->orderFactory->create();
         $order->setStoreId($draft->storeId);
         $order->setState(Order::STATE_NEW);
         $order->setStatus('pending');
+        if ($metadata !== null) {
+            $order->setIncrementId($metadata->incrementId);
+            $order->setCreatedAt($metadata->createdAt);
+            $order->setUpdatedAt($metadata->updatedAt);
+            $order->setState($metadata->state);
+            $order->setStatus($metadata->status);
+        }
 
         // Preserve the external reference: the source order number is recorded as the order's
         // ext_order_id (and again in a status-history comment below) so B↔A is always traceable.
@@ -98,6 +112,9 @@ class NativeOrderGateway implements NativeOrderGatewayInterface
         );
 
         $saved = $this->orderRepository->save($order);
+        if ($metadata !== null) {
+            $this->sourceMetadataPersistence->finish($saved, $draft, $metadata);
+        }
 
         return (int) $saved->getEntityId();
     }

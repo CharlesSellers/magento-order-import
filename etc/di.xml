@@ -46,4 +46,9 @@
         <plugin name="venuno_order_import_account_reference"
                 type="Venuno\OrderImport\Plugin\Sales\OrderRepositoryPlugin"/>
     </type>
+    <type name="Venuno\OrderImport\Model\Materialisation\SourceMetadataPersistence">
+        <arguments>
+            <argument name="orderGrid" xsi:type="object">Magento\Sales\Model\ResourceModel\Order\Grid</argument>
+        </arguments>
+    </type>
 </config>

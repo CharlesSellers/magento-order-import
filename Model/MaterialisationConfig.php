@@ -28,6 +28,7 @@ use Magento\Framework\App\DeploymentConfig;
 class MaterialisationConfig
 {
     public const CONFIG_PATH = 'venuno/order_import/materialise';
+    public const PRESERVE_SOURCE_METADATA_PATH = 'venuno/order_import/preserve_source_metadata';
 
     public function __construct(
         private readonly DeploymentConfig $deploymentConfig
@@ -36,7 +37,18 @@ class MaterialisationConfig
 
     public function isEnabled(): bool
     {
-        $value = $this->deploymentConfig->get(self::CONFIG_PATH);
+        return $this->flag(self::CONFIG_PATH);
+    }
+
+    /** Opt-in only. This does not enable materialisation or claim to import related sales records. */
+    public function preservesSourceMetadata(): bool
+    {
+        return $this->flag(self::PRESERVE_SOURCE_METADATA_PATH);
+    }
+
+    private function flag(string $path): bool
+    {
+        $value = $this->deploymentConfig->get($path);
 
         // Tolerate bool, "1"/"true"/"yes" string, or int from env.php.
         if (is_bool($value)) {

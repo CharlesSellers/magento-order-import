@@ -23,6 +23,9 @@ class MaterialisationException extends \RuntimeException
     public const REASON_NO_ITEMS = 'no_items';
     public const REASON_UNKNOWN_SKU = 'unknown_sku';
     public const REASON_ORDER_CREATE_FAILED = 'order_create_failed';
+    public const REASON_SOURCE_METADATA_INVALID = 'source_metadata_invalid';
+    public const REASON_ORDER_NUMBER_CONFLICT = 'order_number_conflict';
+    public const REASON_SOURCE_STATUS_UNMAPPED = 'source_status_unmapped';
     /** A non-guest import resolved to no destination customer (email not found in the order's website). */
     public const REASON_CUSTOMER_NOT_FOUND = 'customer_not_found';
     /** Email and account-reference lookups identified different destination customers. */

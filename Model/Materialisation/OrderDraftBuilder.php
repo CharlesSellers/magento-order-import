@@ -101,7 +101,10 @@ class OrderDraftBuilder
             accountReference: $customer['accountReference'],
             accountReferenceAttribute: $customer['accountReferenceAttribute'],
             sourceCustomerId: $customer['sourceCustomerId'],
-            sourceGroupId: $customer['sourceGroupId']
+            sourceGroupId: $customer['sourceGroupId'],
+            sourceHeader: $header,
+            sourceOriginalCreatedAt: $this->nullableString($row['original_created_at'] ?? null),
+            sourcePayloadIdentity: array_intersect_key($order, array_flip(['entity_id', 'increment_id', 'store_id']))
         );
     }
 

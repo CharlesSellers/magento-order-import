@@ -56,7 +56,11 @@ class OrderDraft
         public readonly ?string $accountReferenceAttribute = null,
         // Provenance ONLY — the source's ids. Never reused as a destination id / group (kept for audit only).
         public readonly ?string $sourceCustomerId = null,
-        public readonly ?string $sourceGroupId = null
+        public readonly ?string $sourceGroupId = null,
+        // Raw provenance is retained even when the opt-in preservation mode is disabled.
+        public readonly array $sourceHeader = [],
+        public readonly ?string $sourceOriginalCreatedAt = null,
+        public readonly array $sourcePayloadIdentity = []
     ) {
     }
 }
