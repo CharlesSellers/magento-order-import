@@ -50,6 +50,26 @@ final class SourceMetadataPersistenceTest extends TestCase
         $this->assertPreflightReason(MaterialisationException::REASON_SOURCE_STATUS_UNMAPPED);
     }
 
+    public function testCompleteArchiveCanPreserveAnExistingLegacyStatusWithoutChangingMappings(): void
+    {
+        $this->db->method('getTransactionLevel')->willReturn(1);
+        $this->db->expects(self::exactly(3))->method('fetchOne')->willReturnOnConsecutiveCalls(false, 'complete', false);
+        $this->db->expects(self::never())->method('insert');
+        $this->db->expects(self::never())->method('update');
+        $draft = (new OrderDraftBuilder())->fromImportRow(\Venuno\OrderImport\Test\Fixtures\OrderHistoryFixture::row());
+        $history = \Venuno\OrderImport\Model\Materialisation\OrderHistory::fromDraft($draft);
+        $this->persistence->assertAvailable($draft, SourceOrderMetadata::fromDraft($draft), $history);
+    }
+
+    public function testCompleteArchiveStillRejectsAnUnknownStatus(): void
+    {
+        $this->db->method('getTransactionLevel')->willReturn(1);
+        $this->db->expects(self::exactly(2))->method('fetchOne')->willReturn(false);
+        $draft = (new OrderDraftBuilder())->fromImportRow(\Venuno\OrderImport\Test\Fixtures\OrderHistoryFixture::row());
+        $this->expectException(MaterialisationException::class);
+        $this->persistence->assertAvailable($draft, SourceOrderMetadata::fromDraft($draft), \Venuno\OrderImport\Model\Materialisation\OrderHistory::fromDraft($draft));
+    }
+
     public function testCollisionIsTerminalAndDoesNotLinkExistingOrder(): void
     {
         $this->db->method('fetchOne')->willReturnOnConsecutiveCalls('processing', 567);

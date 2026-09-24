@@ -14,7 +14,7 @@ class SourceMetadataPersistence
     {
     }
 
-    public function assertAvailable(OrderDraft $draft, SourceOrderMetadata $metadata): void
+    public function assertAvailable(OrderDraft $draft, SourceOrderMetadata $metadata, ?OrderHistory $history = null): void
     {
         $db = $this->resource->getConnection();
         if ($db->getTransactionLevel() < 1) {
@@ -22,6 +22,13 @@ class SourceMetadataPersistence
         }
         $mapped = $db->fetchOne($db->select()->from($this->resource->getTableName('sales_order_status_state'), ['status'])
             ->where('state = ?', $metadata->state)->where('status = ?', $metadata->status)->limit(1));
+        // Legacy stores can contain real state/status pairs absent from their own mapping table.
+        // A validated archival snapshot may preserve a registered status verbatim; this neither
+        // creates a global mapping nor changes approval policy. Metadata-only imports stay strict.
+        if ($mapped === false && $history !== null) {
+            $mapped = $db->fetchOne($db->select()->from($this->resource->getTableName('sales_order_status'), ['status'])
+                ->where('status = ?', $metadata->status)->limit(1));
+        }
         if ($mapped === false) {
             throw new MaterialisationException('Source status is not assigned to its state on the destination; no fallback status was used.',
                 MaterialisationException::REASON_SOURCE_STATUS_UNMAPPED, false);

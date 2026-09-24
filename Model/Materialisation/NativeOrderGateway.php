@@ -58,7 +58,7 @@ class NativeOrderGateway implements NativeOrderGatewayInterface
             throw new MaterialisationException('Complete-history mode also requires source metadata preservation.', 'source_history_invalid', false);
         }
         if ($metadata !== null) {
-            $this->sourceMetadataPersistence->assertAvailable($draft, $metadata);
+            $this->sourceMetadataPersistence->assertAvailable($draft, $metadata, $history);
         }
         $order = $this->orderFactory->create();
         $order->setStoreId($draft->storeId);
