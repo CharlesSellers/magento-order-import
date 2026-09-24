@@ -104,7 +104,8 @@ class OrderDraftBuilder
             sourceGroupId: $customer['sourceGroupId'],
             sourceHeader: $header,
             sourceOriginalCreatedAt: $this->nullableString($row['original_created_at'] ?? null),
-            sourcePayloadIdentity: array_intersect_key($order, array_flip(['entity_id', 'increment_id', 'store_id']))
+            sourcePayloadIdentity: array_intersect_key($order, array_flip(['entity_id', 'increment_id', 'store_id'])),
+            sourceHistory: $this->arrayField($order, 'history')
         );
     }
 
@@ -312,6 +313,7 @@ class OrderDraftBuilder
             }
             $price = (float) ($raw['price'] ?? 0);
             $items[] = [
+                'source_item_id' => $this->nullableString($raw['item_id'] ?? null),
                 'sku' => $sku,
                 'name' => $this->nullableString($raw['name'] ?? null),
                 'qty' => $qty,

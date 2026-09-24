@@ -45,13 +45,18 @@ class NativeOrderGateway implements NativeOrderGatewayInterface
         private readonly StoreManagerInterface $storeManager,
         private readonly CustomerLinkPlanner $customerLinkPlanner,
         private readonly MaterialisationConfig $materialisationConfig,
-        private readonly SourceMetadataPersistence $sourceMetadataPersistence
+        private readonly SourceMetadataPersistence $sourceMetadataPersistence,
+        private readonly OrderHistoryPersistence $orderHistoryPersistence
     ) {
     }
 
     public function place(OrderDraft $draft): int
     {
         $metadata = $this->materialisationConfig->preservesSourceMetadata() ? SourceOrderMetadata::fromDraft($draft) : null;
+        $history = $this->materialisationConfig->requiresSourceHistory() ? OrderHistory::fromDraft($draft) : null;
+        if ($history !== null && $metadata === null) {
+            throw new MaterialisationException('Complete-history mode also requires source metadata preservation.', 'source_history_invalid', false);
+        }
         if ($metadata !== null) {
             $this->sourceMetadataPersistence->assertAvailable($draft, $metadata);
         }
@@ -91,15 +96,41 @@ class NativeOrderGateway implements NativeOrderGatewayInterface
         }
 
         $totalQty = 0.0;
-        foreach ($draft->items as $item) {
-            $order->addItem($this->buildItem($item, $draft->storeId));
+        $nativeItems = [];
+        foreach ($draft->items as $index=>$item) {
+            $native = $this->buildItem($item, $draft->storeId);
+            if ($history !== null) {
+                $sourceId = (string)$item['source_item_id'];
+                $native->addData(array_diff_key($history->items[$sourceId], array_flip(['item_id','parent_item_id','order_id','product_id','store_id'])));
+                $nativeItems[$sourceId] = $native;
+            } else {
+                $order->addItem($native);
+            }
             $totalQty += (float) $item['qty'];
+        }
+        if ($history !== null) {
+            // Add parents before children; parent ids are assigned by Magento's order-item relation save.
+            $added = [];
+            $add = function (string $id) use (&$add, &$added, $history, $nativeItems, $order): void {
+                if (isset($added[$id])) return;
+                $parent = $history->items[$id]['parent_item_id'] ?? null;
+                if ($parent) { $add((string)$parent); $nativeItems[$id]->setParentItem($nativeItems[(string)$parent]); }
+                $order->addItem($nativeItems[$id]);
+                $added[$id] = true;
+            };
+            foreach (array_keys($nativeItems) as $id) $add((string)$id);
         }
 
         $this->applyTotals($order, $draft, $totalQty, count($draft->items));
+        if ($history !== null) {
+            $order->addData(array_diff_key($history->data['order'], array_flip(['entity_id','store_id'])));
+            $order->setSendEmail(false);
+            $order->setEmailSent(false);
+        }
 
         $payment = $this->orderPaymentFactory->create();
         $payment->setMethod($draft->paymentMethod);
+        if ($history !== null) $payment->addData($history->data['payment']);
         $order->setPayment($payment);
 
         $order->addCommentToStatusHistory(
@@ -115,6 +146,7 @@ class NativeOrderGateway implements NativeOrderGatewayInterface
         if ($metadata !== null) {
             $this->sourceMetadataPersistence->finish($saved, $draft, $metadata);
         }
+        if ($history !== null) $this->orderHistoryPersistence->persist($saved, $history, $nativeItems);
 
         return (int) $saved->getEntityId();
     }

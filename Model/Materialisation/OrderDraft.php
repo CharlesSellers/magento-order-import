@@ -60,7 +60,8 @@ class OrderDraft
         // Raw provenance is retained even when the opt-in preservation mode is disabled.
         public readonly array $sourceHeader = [],
         public readonly ?string $sourceOriginalCreatedAt = null,
-        public readonly array $sourcePayloadIdentity = []
+        public readonly array $sourcePayloadIdentity = [],
+        public readonly array $sourceHistory = []
     ) {
     }
 }

@@ -15,9 +15,9 @@ class Capabilities implements CapabilitiesInterface
 {
     /**
      * The import-domain contract version. 0.2 added the intake; 0.3 adds native order materialisation;
-     * 0.4 adds destination customer linking (the order payload's sibling `customer` block).
+     * 0.4 adds destination customer linking; 0.5 adds opt-in complete sales-history snapshots.
      */
-    public const CONTRACT_VERSION = '0.4';
+    public const CONTRACT_VERSION = '0.5';
 
     /**
      * Store-aware source identity a future import will require. NEVER increment_id alone — it is

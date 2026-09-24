@@ -29,6 +29,7 @@ class MaterialisationConfig
 {
     public const CONFIG_PATH = 'venuno/order_import/materialise';
     public const PRESERVE_SOURCE_METADATA_PATH = 'venuno/order_import/preserve_source_metadata';
+    public const REQUIRE_SOURCE_HISTORY_PATH = 'venuno/order_import/require_source_history';
 
     public function __construct(
         private readonly DeploymentConfig $deploymentConfig
@@ -44,6 +45,11 @@ class MaterialisationConfig
     public function preservesSourceMetadata(): bool
     {
         return $this->flag(self::PRESERVE_SOURCE_METADATA_PATH);
+    }
+
+    public function requiresSourceHistory(): bool
+    {
+        return $this->flag(self::REQUIRE_SOURCE_HISTORY_PATH);
     }
 
     private function flag(string $path): bool
