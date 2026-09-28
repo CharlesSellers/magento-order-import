@@ -6,6 +6,9 @@ interface SourceFinancialsResultInterface
 {
     /** @return string */
     public function getSnapshotJson(): string;
-    /** @param string $value @return $this */
+    /**
+     * @param string $value
+     * @return $this
+     */
     public function setSnapshotJson(string $value): SourceFinancialsResultInterface;
 }
