@@ -46,7 +46,8 @@ class NativeOrderGateway implements NativeOrderGatewayInterface
         private readonly CustomerLinkPlanner $customerLinkPlanner,
         private readonly MaterialisationConfig $materialisationConfig,
         private readonly SourceMetadataPersistence $sourceMetadataPersistence,
-        private readonly OrderHistoryPersistence $orderHistoryPersistence
+        private readonly OrderHistoryPersistence $orderHistoryPersistence,
+        private readonly HistoricalExportSuppression $historicalExportSuppression
     ) {
     }
 
@@ -147,6 +148,7 @@ class NativeOrderGateway implements NativeOrderGatewayInterface
             $this->sourceMetadataPersistence->finish($saved, $draft, $metadata);
         }
         if ($history !== null) $this->orderHistoryPersistence->persist($saved, $history, $nativeItems);
+        if ($history !== null) $this->historicalExportSuppression->suppress((int)$saved->getEntityId());
 
         return (int) $saved->getEntityId();
     }

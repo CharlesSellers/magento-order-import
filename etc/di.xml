@@ -8,6 +8,8 @@
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
     <!-- Services -->
+    <preference for="Venuno\OrderImport\Api\SourceFinancialsInterface" type="Venuno\OrderImport\Model\SourceFinancials"/>
+    <preference for="Venuno\OrderImport\Api\Data\SourceFinancialsResultInterface" type="Venuno\OrderImport\Model\Data\SourceFinancialsResult"/>
     <preference for="Venuno\OrderImport\Api\HealthInterface"
                 type="Venuno\OrderImport\Model\Health"/>
     <preference for="Venuno\OrderImport\Api\VersionInterface"
