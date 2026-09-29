@@ -43,7 +43,7 @@ between Magento-free logic and Magento I/O.
    - **Replayable** — a `failed` (or `pending`) row can be re-sent; because a failed attempt is rolled
      back, no orphan order exists, so the replay creates exactly one.
    - **Partial-failure safe** — terminal data errors (bad payload, unknown SKU) map to **HTTP 422** and
-     transient errors to **HTTP 5xx**, both recorded on the row (`failed` + `error_message`, `attempts`),
+     transient errors to **HTTP 503** (since 0.5.4; explicitly retryable by Venuno), both recorded on the row (`failed` + `error_message`, `attempts`),
      never leaving a half-built order.
    - **External references preserved** — the source order number is stored as the Magento order's
      `ext_order_id` and in an order status-history comment, so B↔A is always traceable; the

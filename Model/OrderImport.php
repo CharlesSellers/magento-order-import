@@ -32,8 +32,8 @@ class OrderImport implements OrderImportInterface
 {
     /** Validation / terminal data errors surface as HTTP 422 (non-retryable). */
     private const HTTP_UNPROCESSABLE_ENTITY = 422;
-    /** Transient failures surface as HTTP 500 (the client retries). */
-    private const HTTP_INTERNAL_ERROR = 500;
+    /** HTTP 503 is explicitly retryable by Venuno; a generic 500 is not. */
+    private const HTTP_SERVICE_UNAVAILABLE = 503;
 
     public function __construct(
         private readonly OrderImportResultInterfaceFactory $resultFactory,
@@ -108,7 +108,7 @@ class OrderImport implements OrderImportInterface
      * Materialise the staged row into a native order and shape the response. `duplicate` reflects whether
      * a NEW order was created: a freshly created order is billable (`duplicate=false`); an
      * already-materialised one is an idempotent no-op (`duplicate=true`). A terminal data error maps to
-     * 422, a transient failure (incl. a concurrent materialisation in progress) to 500 so the client retries.
+     * 422, a transient failure (incl. a concurrent materialisation in progress) to 503 so the client retries.
      *
      * @throws WebapiException
      */
@@ -117,7 +117,7 @@ class OrderImport implements OrderImportInterface
         try {
             $result = $this->materialiser->materialise($replayKey);
         } catch (MaterialisationException $e) {
-            $httpCode = $e->isRetryable() ? self::HTTP_INTERNAL_ERROR : self::HTTP_UNPROCESSABLE_ENTITY;
+            $httpCode = $e->isRetryable() ? self::HTTP_SERVICE_UNAVAILABLE : self::HTTP_UNPROCESSABLE_ENTITY;
             throw new WebapiException(
                 __('Order materialisation failed (%1): %2', $e->getReason(), $e->getMessage()),
                 0,
@@ -130,7 +130,7 @@ class OrderImport implements OrderImportInterface
             throw new WebapiException(
                 __('Order materialisation is already in progress; retry shortly.'),
                 0,
-                self::HTTP_INTERNAL_ERROR
+                self::HTTP_SERVICE_UNAVAILABLE
             );
         }
 
