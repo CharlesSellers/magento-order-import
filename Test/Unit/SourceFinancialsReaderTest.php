@@ -6,6 +6,21 @@ use Venuno\OrderImport\Model\SourceFinancialsReader;
 
 final class SourceFinancialsReaderTest extends TestCase
 {
+    public function testTimestampSessionMatchesMagentoUtcBeforeReadOnlySnapshot(): void
+    {
+        $db=$this->createMock(\PDO::class);
+        $commands=[];
+        $db->method('exec')->willReturnCallback(static function($sql)use(&$commands){$commands[]=$sql;return 0;});
+        $query=$this->createMock(\PDOStatement::class);
+        $query->method('fetch')->willReturn(['entity_id'=>1]);
+        $query->method('fetchAll')->willReturn([['item_id'=>1]]);
+        $db->method('prepare')->willReturn($query);
+        $db->expects(self::once())->method('rollBack');
+        (new SourceFinancialsReader())->read($db,1);
+        self::assertContains("SET SESSION time_zone = '+00:00'",$commands);
+        self::assertLessThan(array_search('START TRANSACTION READ ONLY',$commands,true),array_search("SET SESSION time_zone = '+00:00'",$commands,true));
+        self::assertSame([],array_values(array_filter($commands,static fn($sql)=>str_contains($sql,'GLOBAL'))));
+    }
     public function testReadOnlyTransactionAndBoundQueriesAlwaysRollback(): void
     {
         $db=$this->createMock(\PDO::class);

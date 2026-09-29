@@ -8,6 +8,8 @@ class SourceFinancialsReader
     public function read(\PDO $db, int $orderId): array
     {
         if ($orderId < 1) { throw new \InvalidArgumentException('Invalid order identifier.'); }
+        // Match Magento's PDO adapter: TIMESTAMP reads must not inherit the DB server's local/DST zone.
+        $db->exec("SET SESSION time_zone = '+00:00'");
         $db->exec('SET SESSION MAX_EXECUTION_TIME=5000');
         $db->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
         $db->exec('START TRANSACTION READ ONLY');
