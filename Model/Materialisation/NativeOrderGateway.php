@@ -125,6 +125,10 @@ class NativeOrderGateway implements NativeOrderGatewayInterface
         $this->applyTotals($order, $draft, $totalQty, count($draft->items));
         if ($history !== null) {
             $order->addData(array_diff_key($history->data['order'], array_flip(['entity_id','store_id'])));
+            // The archived header carries the raw legacy state; re-apply the validated destination pair.
+            // A no-op unless SourceOrderMetadata normalised the state (history state === header state).
+            $order->setState($metadata->state);
+            $order->setStatus($metadata->status);
             $order->setSendEmail(false);
             $order->setEmailSent(false);
         }
@@ -140,7 +144,10 @@ class NativeOrderGateway implements NativeOrderGatewayInterface
                 $draft->sourcePlatform !== '' ? $draft->sourcePlatform : 'source',
                 $draft->sourceIncrementId !== '' ? $draft->sourceIncrementId : '(unknown)',
                 $draft->sourceEntityId !== '' ? $draft->sourceEntityId : '(unknown)'
-            )
+            ) . ($metadata !== null && $metadata->stateWasNormalised()
+                ? sprintf(' Legacy state "%s" stored as Magento state "%s"; status "%s" preserved.',
+                    $metadata->sourceState, $metadata->state, $metadata->status)
+                : '')
         );
 
         $saved = $this->orderRepository->save($order);

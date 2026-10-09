@@ -6,12 +6,25 @@ namespace Venuno\OrderImport\Model\Materialisation;
 /** Validated Magento header provenance, not a claim of complete invoice/fulfilment replication. */
 final class SourceOrderMetadata
 {
+    /**
+     * Exact legacy (state, status) pairs that are not valid Magento states but have one verified Magento
+     * equivalent. Only the STATE is normalised; the status is preserved verbatim.
+     *
+     * Jangro legacy (Magento 2, store 1): the amasty_stripe payment method writes state `pending` with
+     * status `pending`. `pending` is not a Magento order state (not an Order::STATE_* constant and not in
+     * the legacy or destination sales_order_status_state), and status `pending` is assigned only to state
+     * `new` (is_default=1) on both legacy and destination. Every other state, and `pending` with any other
+     * status, is handled exactly as before.
+     */
+    private const LEGACY_STATE_NORMALISATION = ['pending' => ['pending' => 'new']];
+
     private function __construct(
         public readonly string $incrementId,
         public readonly string $createdAt,
         public readonly string $updatedAt,
         public readonly string $state,
-        public readonly string $status
+        public readonly string $status,
+        public readonly string $sourceState
     ) {
     }
 
@@ -42,16 +55,22 @@ final class SourceOrderMetadata
         if ($draft->sourceOriginalCreatedAt !== null && $draft->sourceOriginalCreatedAt !== $created) {
             self::invalid('Source created_at differs between the header and import identity.');
         }
-        $state = self::text($h, 'state', 32);
+        $sourceState = self::text($h, 'state', 32);
+        $status = self::text($h, 'status', 32);
+        $state = self::LEGACY_STATE_NORMALISATION[$sourceState][$status] ?? $sourceState;
         if (!in_array($state, ['new', 'pending_payment', 'processing', 'complete', 'closed', 'canceled', 'holded', 'payment_review'], true)) {
             self::invalid('Source order state is not a supported Magento state.');
         }
-        $status = self::text($h, 'status', 32);
         $currency = self::text($h, 'order_currency_code', 3);
         if (preg_match('/^[A-Z]{3}$/D', $currency) !== 1 || $currency !== $draft->currencyCode) {
             self::invalid('Source order currency is missing, malformed or inconsistent with totals.');
         }
-        return new self($number, $created, $updated, $state, $status);
+        return new self($number, $created, $updated, $state, $status, $sourceState);
+    }
+
+    public function stateWasNormalised(): bool
+    {
+        return $this->state !== $this->sourceState;
     }
 
     private static function text(array $values, string $key, int $max): string
