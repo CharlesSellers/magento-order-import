@@ -35,6 +35,10 @@
             <resource ref="anonymous"/>
         </resources>
     </route>
+    <route url="/V1/venuno/orders/sync" method="POST">
+        <service class="Venuno\OrderImport\Api\OrderSyncInterface" method="sync"/>
+        <resources><resource ref="anonymous"/></resources>
+    </route>
     <route url="/V1/venuno/source-financials/:orderId" method="GET">
         <service class="Venuno\OrderImport\Api\SourceFinancialsInterface" method="get"/>
         <resources><resource ref="anonymous"/></resources>

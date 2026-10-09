@@ -165,6 +165,14 @@ The effective account identity is persisted on the order and returned by the sta
 The XML/SFTP consumer should read these fields and quarantine an unexpected omission instead of emitting
 `UNKNOWN`. See [ADR-0006](docs/adr/ADR-0006-customer-linking.md).
 
+## Legacy order sync (0.6)
+
+`venuno:orders:sync` (CLI) and `POST /V1/venuno/orders/sync` bring already-imported orders up to date with
+the read-only legacy store — state/status (incl. approvals), missing invoices/shipments/tracking/credit
+memos, financial, customer and address fields — via direct, audited, reversible per-order transactions
+with no observers, emails, payments or stock movements. Off by default. See
+[docs/order-sync.md](docs/order-sync.md).
+
 ## Versioning & contract stability
 
 - `module_version` is the **contract** version, defined in [`Model/Version.php`](Model/Version.php) and

@@ -57,7 +57,7 @@ final class SourceOrderMetadata
         }
         $sourceState = self::text($h, 'state', 32);
         $status = self::text($h, 'status', 32);
-        $state = self::LEGACY_STATE_NORMALISATION[$sourceState][$status] ?? $sourceState;
+        $state = self::normaliseState($sourceState, $status);
         if (!in_array($state, ['new', 'pending_payment', 'processing', 'complete', 'closed', 'canceled', 'holded', 'payment_review'], true)) {
             self::invalid('Source order state is not a supported Magento state.');
         }
@@ -66,6 +66,12 @@ final class SourceOrderMetadata
             self::invalid('Source order currency is missing, malformed or inconsistent with totals.');
         }
         return new self($number, $created, $updated, $state, $status, $sourceState);
+    }
+
+    /** The destination state for a legacy (state, status) pair; unchanged unless an exact verified pair applies. */
+    public static function normaliseState(string $state, string $status): string
+    {
+        return self::LEGACY_STATE_NORMALISATION[$state][$status] ?? $state;
     }
 
     public function stateWasNormalised(): bool

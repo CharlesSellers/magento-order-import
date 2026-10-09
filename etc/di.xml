@@ -16,6 +16,8 @@
                 type="Venuno\OrderImport\Model\Version"/>
     <preference for="Venuno\OrderImport\Api\CapabilitiesInterface"
                 type="Venuno\OrderImport\Model\Capabilities"/>
+    <preference for="Venuno\OrderImport\Api\OrderSyncInterface" type="Venuno\OrderImport\Model\OrderSync"/>
+    <preference for="Venuno\OrderImport\Api\Data\OrderSyncResultInterface" type="Venuno\OrderImport\Model\Data\OrderSyncResult"/>
     <preference for="Venuno\OrderImport\Api\OrderImportInterface"
                 type="Venuno\OrderImport\Model\OrderImport"/>
 
@@ -51,6 +53,20 @@
     <type name="Venuno\OrderImport\Model\Materialisation\SourceMetadataPersistence">
         <arguments>
             <argument name="orderGrid" xsi:type="object">Magento\Sales\Model\ResourceModel\Order\Grid</argument>
+        </arguments>
+    </type>
+
+    <!-- 0.6: legacy order sync CLI (venuno:orders:sync) -->
+    <type name="Magento\Framework\Console\CommandListInterface">
+        <arguments>
+            <argument name="commands" xsi:type="array">
+                <item name="venuno_orders_sync" xsi:type="object">Venuno\OrderImport\Console\Command\OrderSyncCommand\Proxy</item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Venuno\OrderImport\Console\Command\OrderSyncCommand">
+        <arguments>
+            <argument name="service" xsi:type="object">Venuno\OrderImport\Model\Sync\OrderSyncService\Proxy</argument>
         </arguments>
     </type>
 </config>

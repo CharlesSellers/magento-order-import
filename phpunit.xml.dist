@@ -27,6 +27,10 @@
         <testsuite name="Unit">
             <directory>Test/Unit</directory>
         </testsuite>
+        <!-- Real MySQL/MariaDB copies of the sales schemas; skipped unless VENUNO_SYNC_TEST_DSN + VENUNO_SYNC_FIXTURES are set. -->
+        <testsuite name="SyncRealDatabase">
+            <directory>Test/Integration/Sync</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>
