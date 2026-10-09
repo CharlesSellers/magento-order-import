@@ -56,6 +56,31 @@
             <column name="source_order_entity_id"/>
         </index>
     </table>
+    <table name="venuno_order_sync_audit" resource="default" engine="innodb"
+           comment="Venuno legacy order sync audit (before/after values and inserted ids, for rollback)">
+        <column xsi:type="int" name="audit_id" padding="10" unsigned="true" nullable="false" identity="true"/>
+        <column xsi:type="varchar" name="batch_id" length="64" nullable="false"/>
+        <column xsi:type="varchar" name="mode" length="16" nullable="false" comment="cli | api"/>
+        <column xsi:type="int" name="magento_order_id" padding="10" unsigned="true" nullable="false"/>
+        <column xsi:type="varchar" name="source_order_entity_id" length="64" nullable="false"/>
+        <column xsi:type="varchar" name="increment_id" length="64" nullable="false"/>
+        <column xsi:type="varchar" name="legacy_updated_at" length="32" nullable="false"/>
+        <column xsi:type="varchar" name="payload_hash" length="64" nullable="true"/>
+        <column xsi:type="text" name="categories" nullable="true"/>
+        <column xsi:type="mediumtext" name="changes" nullable="false" comment="JSON: updates (from/to), inserted rows, warnings"/>
+        <column xsi:type="varchar" name="status" length="16" nullable="false" default="applied" comment="applied | rolled_back"/>
+        <column xsi:type="timestamp" name="created_at" on_update="false" nullable="false" default="CURRENT_TIMESTAMP"/>
+        <column xsi:type="timestamp" name="rolled_back_at" on_update="false" nullable="true"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="audit_id"/>
+        </constraint>
+        <index referenceId="VENUNO_ORDER_SYNC_AUDIT_BATCH_ID" indexType="btree">
+            <column name="batch_id"/>
+        </index>
+        <index referenceId="VENUNO_ORDER_SYNC_AUDIT_MAGENTO_ORDER_ID" indexType="btree">
+            <column name="magento_order_id"/>
+        </index>
+    </table>
     <table name="sales_order" resource="sales" engine="innodb" comment="Sales Flat Order">
         <column xsi:type="varchar" name="venuno_account_reference" length="128" nullable="true"
                 comment="Venuno Account Reference"/>
